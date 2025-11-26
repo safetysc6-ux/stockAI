@@ -47,7 +47,6 @@
             background-color: #f8fafc;
         }
         
-        /* Disable Select on UI elements for app-feel */
         .no-select { user-select: none; }
         
         /* Custom Scrollbar */
@@ -56,13 +55,13 @@
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
+        /* Hide Scrollbar for Chips */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
         /* Animation */
         .fade-in { animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* Slide Up Animation for Mobile Cart */
-        .slide-up { animation: slideUp 0.3s ease-out forwards; }
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
         /* Hide Print Area */
         #print-area { display: none; }
@@ -86,10 +85,10 @@
         /* Mobile Cart Drawer Styles */
         .mobile-drawer {
             position: fixed;
-            bottom: 64px; /* Height of bottom nav */
+            bottom: 64px;
             left: 0;
             right: 0;
-            height: 80vh;
+            height: 85vh; /* Taller drawer */
             background: white;
             z-index: 40;
             border-top-left-radius: 1.5rem;
@@ -98,28 +97,37 @@
             border-top: 1px solid #e2e8f0;
             display: flex;
             flex-direction: column;
-            transform: translateY(120%); /* Start hidden below */
+            transform: translateY(120%);
             transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .mobile-drawer.open {
-            transform: translateY(0);
-        }
+        .mobile-drawer.open { transform: translateY(0); }
         .backdrop {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 30;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s;
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 30;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s;
+            backdrop-filter: blur(2px); /* Blur background */
         }
-        .backdrop.open {
-            opacity: 1;
-            pointer-events: auto;
+        .backdrop.open { opacity: 1; pointer-events: auto; }
+
+        /* Glassmorphism Nav */
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255,255,255,0.3);
+        }
+
+        /* Skeleton Loading Animation */
+        .skeleton {
+            background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
         }
     </style>
 </head>
-<body class="text-slate-800 h-screen flex flex-col md:flex-row overflow-hidden">
+<body class="text-slate-800 h-screen flex flex-col md:flex-row overflow-hidden bg-slate-50">
 
     <!-- Desktop Sidebar -->
     <aside class="hidden md:flex flex-col w-72 bg-white border-r border-slate-200 h-full shadow-sm z-20">
@@ -129,7 +137,7 @@
             </div>
             <div>
                 <h1 class="font-bold text-lg leading-tight">Project Stock</h1>
-                <p class="text-xs text-slate-500">Management System</p>
+                <p class="text-xs text-slate-500">Professional System</p>
             </div>
         </div>
         
@@ -150,10 +158,14 @@
                 <i class="fa-solid fa-dolly w-6 text-center group-hover:scale-110 transition-transform"></i>
                 <span>เบิกจ่าย</span>
             </button>
+            <button onclick="navTo('history')" class="nav-btn w-full text-left p-3 rounded-xl flex items-center gap-3 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 transition-all group" data-target="history">
+                <i class="fa-solid fa-clock-rotate-left w-6 text-center group-hover:scale-110 transition-transform"></i>
+                <span>ประวัติการเบิก</span>
+            </button>
         </nav>
         
         <div class="p-4 border-t border-slate-100 text-xs text-center text-slate-400">
-            v2.0 Mobile Optimized
+            v3.0 Professional Edition
         </div>
     </aside>
 
@@ -161,307 +173,372 @@
     <main class="flex-1 flex flex-col h-full relative overflow-hidden">
         
         <!-- Top Header (Mobile & Desktop) -->
-        <header class="bg-white/80 backdrop-blur-md border-b border-slate-200 h-16 flex items-center justify-between px-4 md:px-8 sticky top-0 z-10">
-            <h2 id="page-title" class="text-xl font-bold text-slate-800 truncate">Dashboard</h2>
-            <div id="loading-indicator" class="hidden flex items-center gap-2 text-indigo-600 text-sm font-semibold bg-indigo-50 px-3 py-1 rounded-full">
-                <i class="fa-solid fa-circle-notch fa-spin"></i> Loading...
+        <header class="bg-white/90 backdrop-blur-md border-b border-slate-200 h-16 flex items-center justify-between px-4 md:px-8 sticky top-0 z-10">
+            <div class="flex items-center gap-3">
+                <div class="md:hidden w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
+                    <i class="fa-solid fa-boxes-stacked text-sm"></i>
+                </div>
+                <h2 id="page-title" class="text-xl font-bold text-slate-800 truncate">Dashboard</h2>
             </div>
-            <!-- Mobile User Icon / Placeholder -->
-            <div class="md:hidden w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500">
-                <i class="fa-solid fa-user"></i>
+            
+            <!-- User Profile Placeholder -->
+            <div class="flex items-center gap-3">
+                <div class="text-right hidden md:block">
+                    <div class="text-sm font-bold text-slate-700">Admin User</div>
+                    <div class="text-xs text-slate-400">Project Manager</div>
+                </div>
+                <div class="w-9 h-9 rounded-full bg-slate-200 border-2 border-white shadow-sm flex items-center justify-center text-slate-500 overflow-hidden">
+                    <i class="fa-solid fa-user"></i>
+                </div>
             </div>
         </header>
 
         <!-- Scrollable Content -->
         <div class="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8 relative" id="main-scroll">
             
-            <!-- 1. DASHBOARD -->
-            <section id="dashboard" class="page-section fade-in">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <!-- Stat Card 1 -->
-                    <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-6 text-white shadow-lg shadow-indigo-200 relative overflow-hidden">
-                        <div class="relative z-10">
-                            <p class="text-indigo-100 text-sm font-medium">รายการทั้งหมด</p>
-                            <h3 class="text-3xl font-bold mt-1" id="dash-total-items">0</h3>
-                            <p class="text-xs text-indigo-200 mt-2">Items in stock</p>
-                        </div>
-                        <i class="fa-solid fa-cubes absolute -bottom-4 -right-4 text-8xl text-white opacity-10"></i>
-                    </div>
-
-                    <!-- Stat Card 2 -->
-                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 relative overflow-hidden">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <p class="text-slate-500 text-sm font-medium">มูลค่ารวม</p>
-                                <h3 class="text-2xl font-bold text-slate-800 mt-1" id="dash-total-value">0</h3>
-                            </div>
-                            <div class="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center">
-                                <i class="fa-solid fa-coins"></i>
-                            </div>
-                        </div>
-                        <div class="mt-4 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                            <div class="h-full bg-emerald-500 w-3/4"></div>
-                        </div>
-                    </div>
-
-                    <!-- Stat Card 3 -->
-                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 relative overflow-hidden">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <p class="text-slate-500 text-sm font-medium">สินค้าเหลือน้อย</p>
-                                <h3 class="text-2xl font-bold text-rose-600 mt-1" id="dash-low-stock">0</h3>
-                            </div>
-                            <div class="w-10 h-10 bg-rose-100 text-rose-600 rounded-lg flex items-center justify-center">
-                                <i class="fa-solid fa-triangle-exclamation"></i>
-                            </div>
-                        </div>
-                        <p class="text-xs text-slate-400 mt-4">ควรเติมสตอกทันที</p>
-                    </div>
+            <!-- SKELETON LOADING (Shown initially) -->
+            <div id="global-skeleton" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="h-32 rounded-2xl skeleton"></div>
+                    <div class="h-32 rounded-2xl skeleton"></div>
+                    <div class="h-32 rounded-2xl skeleton"></div>
                 </div>
+                <div class="h-64 rounded-2xl skeleton mt-6"></div>
+            </div>
 
-                <!-- Recent Activity Placeholder -->
-                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                    <h3 class="font-bold text-slate-700 mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-clock-rotate-left text-slate-400"></i> คำแนะนำ
-                    </h3>
-                    <div class="p-4 bg-amber-50 rounded-xl border border-amber-100 text-amber-800 text-sm">
-                        <i class="fa-solid fa-info-circle mr-2"></i> 
-                        กรุณาตรวจสอบการตั้งค่า <code>CONFIG</code> ในโค้ด JavaScript เพื่อเชื่อมต่อ Google Sheet และ Apps Script ของคุณ
+            <div id="app-content" class="hidden">
+                <!-- 1. DASHBOARD -->
+                <section id="dashboard" class="page-section fade-in">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <!-- Stat Card 1 -->
+                        <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-6 text-white shadow-lg shadow-indigo-200 relative overflow-hidden group hover:scale-[1.02] transition-transform">
+                            <div class="relative z-10">
+                                <p class="text-indigo-100 text-sm font-medium">รายการทั้งหมด</p>
+                                <h3 class="text-3xl font-bold mt-1" id="dash-total-items">0</h3>
+                                <p class="text-xs text-indigo-200 mt-2 flex items-center gap-1">
+                                    <i class="fa-solid fa-arrow-trend-up"></i> Active items
+                                </p>
+                            </div>
+                            <i class="fa-solid fa-cubes absolute -bottom-4 -right-4 text-8xl text-white opacity-10 group-hover:opacity-20 transition-opacity"></i>
+                        </div>
+
+                        <!-- Stat Card 2 -->
+                        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 relative overflow-hidden hover:shadow-md transition">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-slate-500 text-sm font-medium">มูลค่ารวม</p>
+                                    <h3 class="text-2xl font-bold text-slate-800 mt-1" id="dash-total-value">0</h3>
+                                </div>
+                                <div class="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center">
+                                    <i class="fa-solid fa-coins"></i>
+                                </div>
+                            </div>
+                            <div class="mt-4 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                                <div class="h-full bg-emerald-500 w-3/4"></div>
+                            </div>
+                        </div>
+
+                        <!-- Stat Card 3 -->
+                        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 relative overflow-hidden hover:shadow-md transition">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-slate-500 text-sm font-medium">สินค้าเหลือน้อย</p>
+                                    <h3 class="text-2xl font-bold text-rose-600 mt-1" id="dash-low-stock">0</h3>
+                                </div>
+                                <div class="w-10 h-10 bg-rose-100 text-rose-600 rounded-lg flex items-center justify-center animate-pulse">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                </div>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-4">ควรเติมสตอกทันที</p>
+                        </div>
                     </div>
-                </div>
-            </section>
 
-            <!-- 2. INVENTORY -->
-            <section id="inventory" class="page-section hidden fade-in">
-                <!-- Search & Filter -->
-                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-4 sticky top-0 z-20">
-                    <div class="flex flex-col md:flex-row gap-3">
+                    <!-- Config Warning -->
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <h3 class="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-server text-slate-400"></i> สถานะระบบ
+                        </h3>
+                        <div class="p-4 bg-amber-50 rounded-xl border border-amber-100 text-amber-800 text-sm flex gap-3 items-start">
+                            <i class="fa-solid fa-circle-info mt-1"></i> 
+                            <div>
+                                <strong>System Check:</strong> กรุณาตรวจสอบการตั้งค่า <code>CONFIG</code> ในโค้ด JavaScript เพื่อเชื่อมต่อ Google Sheet และ Apps Script ของคุณ
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. INVENTORY -->
+                <section id="inventory" class="page-section hidden fade-in">
+                    <!-- Modern Search Bar -->
+                    <div class="bg-white p-2 rounded-2xl shadow-sm border border-slate-100 mb-4 sticky top-0 z-20 flex items-center gap-2">
                         <div class="relative flex-1">
-                            <i class="fa-solid fa-search absolute left-3 top-3.5 text-slate-400"></i>
+                            <i class="fa-solid fa-search absolute left-4 top-3.5 text-slate-400"></i>
                             <input type="text" id="search-inventory" placeholder="ค้นหาชื่อ, รหัส..." 
-                                class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+                                class="w-full pl-11 pr-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 transition"
                                 onkeyup="renderInventory()">
                         </div>
-                        <select id="filter-category" onchange="renderInventory()" 
-                            class="py-3 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700">
-                            <option value="All">ทุกหมวดหมู่</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Responsive Content (Card Grid for Mobile / Table for Desktop) -->
-                <div class="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                    <table class="w-full text-left">
-                        <thead class="bg-slate-50 text-slate-600 text-sm uppercase font-semibold">
-                            <tr>
-                                <th class="p-4">สินค้า</th>
-                                <th class="p-4">หมวดหมู่</th>
-                                <th class="p-4 text-right">ราคา</th>
-                                <th class="p-4 text-center">คงเหลือ</th>
-                                <th class="p-4">รายละเอียด</th>
-                            </tr>
-                        </thead>
-                        <tbody id="inventory-table-body" class="divide-y divide-slate-100 text-sm text-slate-700">
-                            <!-- Desktop Rows -->
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Mobile Cards View -->
-                <div id="inventory-mobile-list" class="md:hidden space-y-3">
-                    <!-- Mobile Cards Injected Here -->
-                </div>
-            </section>
-
-            <!-- 3. ADD ITEM -->
-            <section id="add-item" class="page-section hidden fade-in">
-                <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                    <div class="bg-indigo-50 p-4 border-b border-indigo-100 flex items-center gap-3">
-                        <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600">
-                            <i class="fa-solid fa-pen"></i>
-                        </div>
-                        <h3 class="font-bold text-indigo-900">บันทึกข้อมูลอุปกรณ์ใหม่</h3>
-                    </div>
-                    
-                    <form id="add-item-form" onsubmit="submitAddItem(event)" class="p-6">
-                        <div class="floating-input-group">
-                            <label class="floating-label">ชื่ออุปกรณ์ *</label>
-                            <input type="text" name="name" required class="floating-input" placeholder=" ">
-                        </div>
-
-                        <div class="floating-input-group">
-                            <label class="floating-label">หมวดหมู่ *</label>
-                            <input type="text" name="category" list="category-list" required class="floating-input" placeholder=" ">
-                            <datalist id="category-list">
-                                <option value="ไฟฟ้า"><option value="เครื่องมือช่าง"><option value="วัสดุสิ้นเปลือง"><option value="IT">
-                            </datalist>
-                        </div>
-
-                        <div class="floating-input-group">
-                            <label class="floating-label">รูปภาพ (URL)</label>
-                            <input type="url" name="image" class="floating-input" placeholder=" ">
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="floating-input-group">
-                                <label class="floating-label">ราคา/หน่วย</label>
-                                <input type="number" name="price" required class="floating-input" placeholder=" ">
-                            </div>
-                            <div class="floating-input-group">
-                                <label class="floating-label">จำนวน</label>
-                                <input type="number" name="quantity" required class="floating-input" placeholder=" ">
-                            </div>
-                        </div>
-
-                        <div class="floating-input-group">
-                            <label class="floating-label">รายละเอียด</label>
-                            <textarea name="details" rows="3" class="floating-input" placeholder=" "></textarea>
-                        </div>
-
-                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-200 transition active:scale-95 flex justify-center items-center gap-2">
-                            <i class="fa-solid fa-save"></i> บันทึกข้อมูล
+                        <button class="md:hidden p-3 bg-slate-100 rounded-xl text-slate-600" onclick="document.getElementById('filter-chips').classList.toggle('hidden')">
+                            <i class="fa-solid fa-filter"></i>
                         </button>
-                    </form>
-                </div>
-            </section>
-
-            <!-- 4. WITHDRAW -->
-            <section id="withdraw" class="page-section hidden fade-in h-full flex flex-col">
-                <!-- Mobile Cart Toggle Button (Sticky Top) -->
-                <div class="md:hidden bg-indigo-600 text-white p-4 rounded-xl mb-4 shadow-lg shadow-indigo-200 flex justify-between items-center cursor-pointer active:scale-95 transition" onclick="toggleMobileCart()">
-                    <div class="flex items-center gap-3">
-                        <div class="bg-white text-indigo-600 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm" id="mobile-cart-count">0</div>
-                        <span class="font-bold">รายการในตะกร้า</span>
-                    </div>
-                    <div class="flex items-center gap-2 text-sm opacity-90">
-                        <span>ดูรายการ</span>
-                        <i class="fa-solid fa-chevron-up"></i>
-                    </div>
-                </div>
-
-                <!-- Desktop Layout -->
-                <div class="flex flex-col md:flex-row gap-6 h-full">
-                    <!-- Product Catalog -->
-                    <div class="flex-1 flex flex-col h-full">
-                        <input type="text" id="withdraw-search" placeholder="🔍 ค้นหาสินค้าเพื่อเบิก..." class="w-full p-3 bg-white border border-slate-200 rounded-xl shadow-sm mb-4 focus:ring-2 focus:ring-indigo-500 outline-none" onkeyup="renderWithdrawGrid()">
-                        
-                        <div id="withdraw-grid" class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto pb-32 md:pb-0 pr-1">
-                            <!-- Items Injected Here -->
-                        </div>
                     </div>
 
-                    <!-- Cart Drawer (Responsive: Drawer on Mobile / Panel on Desktop) -->
-                    <!-- This div handles both behaviors via JS toggling classes -->
-                    <div id="cart-panel" class="mobile-drawer md:mobile-drawer-reset md:w-96 bg-white md:rounded-2xl md:shadow-xl md:border md:border-slate-100 flex flex-col md:h-full md:relative md:z-auto md:transform-none md:bottom-auto">
-                        <div class="p-4 border-b border-slate-100 bg-slate-50 md:rounded-t-2xl flex justify-between items-center">
-                            <h3 class="font-bold text-slate-800 flex items-center gap-2">
-                                <i class="fa-solid fa-cart-shopping text-indigo-600"></i> ตะกร้าเบิกของ
-                            </h3>
-                            <!-- Close button for mobile only -->
-                            <button onclick="toggleMobileCart()" class="md:hidden w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center">
-                                <i class="fa-solid fa-xmark"></i>
-                            </button>
-                        </div>
+                    <!-- Scrollable Filter Chips -->
+                    <div id="filter-chips" class="flex overflow-x-auto gap-2 pb-2 mb-4 no-scrollbar">
+                        <!-- Injected via JS -->
+                    </div>
 
-                        <div class="p-4 space-y-3 flex-shrink-0">
-                            <div class="floating-input-group mb-0">
-                                <label class="floating-label">ชื่อโครงการ *</label>
-                                <input type="text" id="project-name" class="floating-input bg-indigo-50/50 border-indigo-100" placeholder=" ">
-                            </div>
-                            <div class="floating-input-group mb-0">
-                                <label class="floating-label">ชื่อผู้เบิก *</label>
-                                <input type="text" id="withdrawer-name" class="floating-input bg-indigo-50/50 border-indigo-100" placeholder=" ">
-                            </div>
-                        </div>
+                    <!-- Responsive Content -->
+                    <div class="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50 text-slate-600 text-sm uppercase font-semibold">
+                                <tr>
+                                    <th class="p-4">สินค้า</th>
+                                    <th class="p-4">หมวดหมู่</th>
+                                    <th class="p-4 text-right">ราคา</th>
+                                    <th class="p-4 text-center">คงเหลือ</th>
+                                    <th class="p-4">รายละเอียด</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventory-table-body" class="divide-y divide-slate-100 text-sm text-slate-700">
+                                <!-- Desktop Rows -->
+                            </tbody>
+                        </table>
+                    </div>
 
-                        <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-2 bg-slate-50/50 min-h-[150px]">
-                            <div class="flex flex-col items-center justify-center h-full text-slate-400 opacity-60">
-                                <i class="fa-solid fa-basket-shopping text-4xl mb-2"></i>
-                                <span class="text-sm">เลือกสินค้าจากรายการ</span>
-                            </div>
-                        </div>
-
-                        <div class="p-4 border-t border-slate-100 bg-white md:rounded-b-2xl shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10 pb-8 md:pb-4">
-                            <div class="flex justify-between mb-4 text-sm font-semibold text-slate-700">
-                                <span>รวมรายการ</span>
-                                <span id="cart-total-qty">0 ชิ้น</span>
-                            </div>
-                            <button onclick="confirmWithdraw()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3.5 rounded-xl shadow-lg transition active:scale-95 flex justify-center items-center gap-2">
-                                <span>ยืนยันการเบิก</span> <i class="fa-solid fa-arrow-right"></i>
-                            </button>
-                        </div>
+                    <!-- Mobile Cards View -->
+                    <div id="inventory-mobile-list" class="md:hidden space-y-3">
+                        <!-- Mobile Cards Injected Here -->
                     </div>
                     
-                    <!-- Backdrop for mobile -->
-                    <div id="cart-backdrop" class="backdrop md:hidden" onclick="toggleMobileCart()"></div>
-                </div>
-            </section>
+                    <!-- Empty State -->
+                    <div id="inventory-empty" class="hidden flex-col items-center justify-center py-12 text-slate-400">
+                        <i class="fa-solid fa-box-open text-6xl mb-4 opacity-50"></i>
+                        <p>ไม่พบรายการสินค้า</p>
+                    </div>
+                </section>
+
+                <!-- 3. ADD ITEM -->
+                <section id="add-item" class="page-section hidden fade-in">
+                    <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                        <div class="bg-indigo-50 p-6 border-b border-indigo-100 flex items-center gap-4">
+                            <div class="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm">
+                                <i class="fa-solid fa-pen-to-square text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-indigo-900 text-lg">เพิ่มสินค้าใหม่</h3>
+                                <p class="text-xs text-indigo-600">กรอกข้อมูลเพื่อนำเข้าสู่ระบบ</p>
+                            </div>
+                        </div>
+                        
+                        <form id="add-item-form" onsubmit="submitAddItem(event)" class="p-6 md:p-8">
+                            <div class="floating-input-group">
+                                <label class="floating-label">ชื่ออุปกรณ์ *</label>
+                                <input type="text" name="name" required class="floating-input" placeholder=" ">
+                            </div>
+
+                            <div class="floating-input-group">
+                                <label class="floating-label">หมวดหมู่ *</label>
+                                <input type="text" name="category" list="category-list" required class="floating-input" placeholder=" ">
+                                <datalist id="category-list">
+                                    <option value="ไฟฟ้า"><option value="เครื่องมือช่าง"><option value="วัสดุสิ้นเปลือง"><option value="IT">
+                                </datalist>
+                            </div>
+
+                            <div class="floating-input-group">
+                                <label class="floating-label">รูปภาพ (URL)</label>
+                                <input type="url" name="image" class="floating-input" placeholder=" ">
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="floating-input-group">
+                                    <label class="floating-label">ราคา/หน่วย</label>
+                                    <input type="number" name="price" required class="floating-input" placeholder=" ">
+                                </div>
+                                <div class="floating-input-group">
+                                    <label class="floating-label">จำนวน</label>
+                                    <input type="number" name="quantity" required class="floating-input" placeholder=" ">
+                                </div>
+                            </div>
+
+                            <div class="floating-input-group">
+                                <label class="floating-label">รายละเอียด</label>
+                                <textarea name="details" rows="3" class="floating-input" placeholder=" "></textarea>
+                            </div>
+
+                            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 transition transform active:scale-[0.98] flex justify-center items-center gap-2">
+                                <i class="fa-solid fa-save"></i> บันทึกข้อมูล
+                            </button>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- 4. WITHDRAW -->
+                <section id="withdraw" class="page-section hidden fade-in h-full flex flex-col">
+                    <!-- Mobile Cart Toggle Button (Sticky Top) -->
+                    <div class="md:hidden bg-gradient-to-r from-slate-800 to-slate-900 text-white p-4 rounded-xl mb-4 shadow-lg shadow-slate-300 flex justify-between items-center cursor-pointer active:scale-95 transition" onclick="toggleMobileCart()">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-indigo-500 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ring-2 ring-indigo-400" id="mobile-cart-count">0</div>
+                            <span class="font-bold">ตะกร้าสินค้า</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-sm text-slate-300">
+                            <span>เปิดดู</span>
+                            <i class="fa-solid fa-chevron-up animate-bounce"></i>
+                        </div>
+                    </div>
+
+                    <!-- Desktop Layout -->
+                    <div class="flex flex-col md:flex-row gap-6 h-full">
+                        <!-- Product Catalog -->
+                        <div class="flex-1 flex flex-col h-full">
+                            <div class="relative mb-4">
+                                <i class="fa-solid fa-search absolute left-4 top-3.5 text-slate-400"></i>
+                                <input type="text" id="withdraw-search" placeholder="ค้นหาสินค้าเพื่อเบิก..." class="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none" onkeyup="renderWithdrawGrid()">
+                            </div>
+                            
+                            <div id="withdraw-grid" class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto pb-32 md:pb-0 pr-1 content-start">
+                                <!-- Items Injected Here -->
+                            </div>
+                            
+                            <!-- Empty Search State -->
+                            <div id="withdraw-empty" class="hidden flex-col items-center justify-center h-64 text-slate-400">
+                                <i class="fa-solid fa-magnifying-glass-minus text-5xl mb-3 opacity-50"></i>
+                                <p>ไม่พบสินค้าที่ค้นหา</p>
+                            </div>
+                        </div>
+
+                        <!-- Cart Drawer -->
+                        <div id="cart-panel" class="mobile-drawer md:mobile-drawer-reset md:w-96 bg-white md:rounded-2xl md:shadow-xl md:border md:border-slate-100 flex flex-col md:h-full md:relative md:z-auto md:transform-none md:bottom-auto">
+                            <div class="p-5 border-b border-slate-100 bg-slate-50 md:rounded-t-2xl flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-bold text-slate-800 flex items-center gap-2 text-lg">
+                                        <i class="fa-solid fa-cart-shopping text-indigo-600"></i> รายการเบิก
+                                    </h3>
+                                    <p class="text-xs text-slate-500 mt-1">ตรวจสอบรายการก่อนยืนยัน</p>
+                                </div>
+                                <button onclick="toggleMobileCart()" class="md:hidden w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-500 flex items-center justify-center shadow-sm">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+
+                            <div class="p-5 space-y-4 flex-shrink-0 bg-white z-10">
+                                <div class="floating-input-group mb-0">
+                                    <label class="floating-label">ชื่อโครงการ *</label>
+                                    <input type="text" id="project-name" class="floating-input bg-indigo-50/30 border-indigo-100 focus:bg-white" placeholder=" ">
+                                </div>
+                                <div class="floating-input-group mb-0">
+                                    <label class="floating-label">ชื่อผู้เบิก *</label>
+                                    <input type="text" id="withdrawer-name" class="floating-input bg-indigo-50/30 border-indigo-100 focus:bg-white" placeholder=" ">
+                                </div>
+                            </div>
+
+                            <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50 min-h-[150px]">
+                                <!-- Cart Items -->
+                            </div>
+
+                            <div class="p-5 border-t border-slate-100 bg-white md:rounded-b-2xl shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.02)] z-10 pb-8 md:pb-5">
+                                <div class="flex justify-between mb-4 text-sm font-semibold text-slate-700">
+                                    <span>รวมรายการ</span>
+                                    <span id="cart-total-qty" class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md">0 ชิ้น</span>
+                                </div>
+                                <button onclick="confirmWithdraw()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg transition transform active:scale-[0.98] flex justify-center items-center gap-3">
+                                    <span>ยืนยันการเบิก</span> <i class="fa-solid fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Backdrop for mobile -->
+                        <div id="cart-backdrop" class="backdrop md:hidden" onclick="toggleMobileCart()"></div>
+                    </div>
+                </section>
+
+                <!-- 5. HISTORY -->
+                <section id="history" class="page-section hidden fade-in">
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <h3 class="font-bold text-lg text-slate-800"><i class="fa-solid fa-clock-rotate-left mr-2 text-indigo-500"></i> ประวัติการเบิก (Local History)</h3>
+                            <button onclick="clearHistory()" class="text-xs text-rose-500 hover:text-rose-700 hover:underline">ล้างประวัติ</button>
+                        </div>
+                        <div id="history-list" class="divide-y divide-slate-100">
+                            <!-- Injected JS -->
+                        </div>
+                    </div>
+                </section>
+            </div>
         </div>
     </main>
 
-    <!-- Mobile Bottom Navigation (Fixed) -->
-    <nav class="md:hidden fixed bottom-0 w-full bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-50 flex justify-around items-center h-16 safe-area-pb">
+    <!-- Mobile Bottom Navigation (Fixed & Glassmorphism) -->
+    <nav class="md:hidden fixed bottom-0 w-full glass-nav shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-50 flex justify-around items-center h-16 safe-area-pb">
         <button onclick="navTo('dashboard')" class="nav-item active flex flex-col items-center justify-center w-full h-full text-slate-400 transition" data-target="dashboard">
             <i class="fa-solid fa-chart-pie text-xl mb-1"></i>
-            <span class="text-[10px]">ภาพรวม</span>
+            <span class="text-[10px] mt-1">ภาพรวม</span>
         </button>
         <button onclick="navTo('inventory')" class="nav-item flex flex-col items-center justify-center w-full h-full text-slate-400 transition" data-target="inventory">
             <i class="fa-solid fa-box text-xl mb-1"></i>
-            <span class="text-[10px]">คลัง</span>
+            <span class="text-[10px] mt-1">คลัง</span>
         </button>
-        <div class="relative -top-5">
-            <button onclick="navTo('add-item')" class="bg-indigo-600 text-white w-14 h-14 rounded-full flex items-center justify-center shadow-lg shadow-indigo-300 hover:scale-105 transition">
+        <div class="relative -top-6">
+            <button onclick="navTo('add-item')" class="bg-indigo-600 text-white w-14 h-14 rounded-full flex items-center justify-center shadow-lg shadow-indigo-400 hover:scale-110 transition duration-300 ring-4 ring-white">
                 <i class="fa-solid fa-plus text-2xl"></i>
             </button>
         </div>
         <button onclick="navTo('withdraw')" class="nav-item flex flex-col items-center justify-center w-full h-full text-slate-400 transition" data-target="withdraw">
             <i class="fa-solid fa-dolly text-xl mb-1"></i>
-            <span class="text-[10px]">เบิกของ</span>
+            <span class="text-[10px] mt-1">เบิกของ</span>
         </button>
-        <button onclick="Swal.fire('Info', 'User profile feature coming soon', 'info')" class="nav-item flex flex-col items-center justify-center w-full h-full text-slate-400 transition">
-            <i class="fa-solid fa-user text-xl mb-1"></i>
-            <span class="text-[10px]">โปรไฟล์</span>
+        <button onclick="navTo('history')" class="nav-item flex flex-col items-center justify-center w-full h-full text-slate-400 transition" data-target="history">
+            <i class="fa-solid fa-clock-rotate-left text-xl mb-1"></i>
+            <span class="text-[10px] mt-1">ประวัติ</span>
         </button>
     </nav>
 
     <!-- PDF Print Template (Hidden) -->
     <div id="print-area">
-        <div style="padding: 30px; font-family: 'Sarabun', sans-serif; color: #000;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 15px;">
-                <div style="font-size: 24px; font-weight: bold;">ใบเบิกอุปกรณ์ / Request Note</div>
-                <div style="text-align: right; font-size: 14px;">Project Stock System</div>
+        <!-- (Same print template) -->
+        <div style="padding: 40px; font-family: 'Sarabun', sans-serif; color: #1e293b;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; border-bottom: 3px solid #1e293b; padding-bottom: 20px;">
+                <div>
+                    <div style="font-size: 28px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">ใบเบิกวัสดุอุปกรณ์</div>
+                    <div style="font-size: 14px; color: #64748b;">Material Requisition Note</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 16px; font-weight: bold;">PROJECT STOCK SYSTEM</div>
+                    <div style="font-size: 12px; color: #64748b;">เอกสารภายในองค์กร</div>
+                </div>
             </div>
             
-            <table style="width: 100%; margin-bottom: 25px;">
+            <table style="width: 100%; margin-bottom: 30px;">
                 <tr>
-                    <td style="padding: 5px 0;"><strong>โครงการ:</strong> <span id="print-project"></span></td>
-                    <td style="text-align: right;"><strong>วันที่:</strong> <span id="print-date"></span></td>
+                    <td style="padding: 8px 0; width: 60%;"><strong>โครงการ (Project):</strong> <span id="print-project" style="border-bottom: 1px dotted #000; padding: 0 10px;"></span></td>
+                    <td style="text-align: right;"><strong>วันที่ (Date):</strong> <span id="print-date"></span></td>
                 </tr>
                 <tr>
-                    <td style="padding: 5px 0;"><strong>ผู้เบิก:</strong> <span id="print-user"></span></td>
-                    <td style="text-align: right;"><strong>เลขที่:</strong> <span id="print-ref"></span></td>
+                    <td style="padding: 8px 0;"><strong>ผู้เบิก (Requester):</strong> <span id="print-user" style="border-bottom: 1px dotted #000; padding: 0 10px;"></span></td>
+                    <td style="text-align: right;"><strong>เลขที่ (No.):</strong> <span id="print-ref" style="font-family: monospace; font-weight: bold;"></span></td>
                 </tr>
             </table>
 
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px;">
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 50px;">
                 <thead>
-                    <tr style="background-color: #f0f0f0;">
-                        <th style="border: 1px solid #000; padding: 10px; width: 10%;">ลำดับ</th>
-                        <th style="border: 1px solid #000; padding: 10px; text-align: left;">รายการ</th>
-                        <th style="border: 1px solid #000; padding: 10px; width: 20%;">จำนวน</th>
+                    <tr style="background-color: #f1f5f9; color: #334155;">
+                        <th style="border: 1px solid #cbd5e1; padding: 12px; width: 10%;">ลำดับ</th>
+                        <th style="border: 1px solid #cbd5e1; padding: 12px; text-align: left;">รายการ (Description)</th>
+                        <th style="border: 1px solid #cbd5e1; padding: 12px; width: 15%; text-align: center;">จำนวน</th>
                     </tr>
                 </thead>
                 <tbody id="print-items-body"></tbody>
             </table>
 
-            <div style="display: flex; justify-content: space-between; margin-top: 60px;">
+            <div style="display: flex; justify-content: space-between; margin-top: 80px; page-break-inside: avoid;">
                 <div style="text-align: center; width: 40%;">
-                    <div style="border-bottom: 1px solid #000; height: 1px; margin-bottom: 10px;"></div>
-                    <div>ผู้เบิก (Requester)</div>
+                    <div style="border-bottom: 1px solid #94a3b8; height: 1px; margin-bottom: 10px;"></div>
+                    <div style="font-weight: bold;">ผู้เบิก (Requester)</div>
+                    <div style="font-size: 12px; color: #64748b;">ลงชื่อผู้รับผิดชอบ</div>
                 </div>
                 <div style="text-align: center; width: 40%;">
-                    <div style="border-bottom: 1px solid #000; height: 1px; margin-bottom: 10px;"></div>
-                    <div>ผู้อนุมัติ (Approver)</div>
+                    <div style="border-bottom: 1px solid #94a3b8; height: 1px; margin-bottom: 10px;"></div>
+                    <div style="font-weight: bold;">ผู้อนุมัติ (Approver)</div>
+                    <div style="font-size: 12px; color: #64748b;">ลงชื่อหัวหน้าโครงการ</div>
                 </div>
             </div>
         </div>
@@ -469,252 +546,225 @@
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
-        // ==========================================
-        // CONFIGURATION
-        // ==========================================
         const CONFIG = {
-            // ใส่ Link CSV จาก Google Sheet (File > Share > Publish to web > CSV)
             CSV_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSa3BzLpNVCfivB67ZqOVNZPHNF1M-75GMfOLfSWs3A3pIH1MTr5A8TI7mqHS6i-VB10l6caAFHshX0/pub?gid=0&single=true&output=csv',
-            
-            // ใส่ Link Web App URL จาก Google Apps Script
             WEB_APP_URL: 'https://script.google.com/macros/s/AKfycby_M5QWZv4jd2jbezXjBf1D11ICVmSgGnR65FdNudgE-0x2RABnV5K-NIQ0HpKDBDdw/exec' 
         };
 
-        // ==========================================
-        // STATE
-        // ==========================================
         let inventoryData = [];
         let cart = [];
         let categories = new Set();
         let isMobileCartOpen = false;
+        let withdrawHistory = JSON.parse(localStorage.getItem('withdrawHistory')) || [];
+        let selectedCategory = 'All';
 
-        // ==========================================
-        // INIT
-        // ==========================================
         document.addEventListener('DOMContentLoaded', () => {
             loadInventoryData();
-            // Default View
             navTo('dashboard');
+            renderHistory();
         });
 
-        // Navigation Logic
+        // ================= NAVIGATION =================
         function navTo(pageId) {
-            // Hide all sections
             document.querySelectorAll('.page-section').forEach(el => el.classList.add('hidden'));
-            // Show target
-            const target = document.getElementById(pageId);
-            target.classList.remove('hidden');
+            document.getElementById(pageId).classList.remove('hidden');
             
-            // Update Headers
-            const titles = {
-                'dashboard': 'ภาพรวมระบบ',
-                'inventory': 'รายการสินค้า',
-                'add-item': 'เพิ่มสินค้าใหม่',
-                'withdraw': 'เบิกจ่ายสินค้า'
-            };
+            const titles = { 'dashboard': 'ภาพรวมระบบ', 'inventory': 'รายการสินค้า', 'add-item': 'เพิ่มสินค้าใหม่', 'withdraw': 'เบิกจ่ายสินค้า', 'history': 'ประวัติการเบิก' };
             document.getElementById('page-title').innerText = titles[pageId];
 
-            // Update Nav States (Desktop & Mobile)
             document.querySelectorAll('.nav-btn, .nav-item').forEach(el => {
                 el.classList.remove('active-nav', 'bg-indigo-50', 'text-indigo-600', 'active');
                 if(el.dataset.target === pageId) {
-                    // Desktop styles
-                    if(el.classList.contains('nav-btn')) {
-                        el.classList.add('active-nav', 'bg-indigo-50', 'text-indigo-600');
-                    }
-                    // Mobile styles
-                    if(el.classList.contains('nav-item')) {
-                        el.classList.add('active');
-                        el.classList.remove('text-slate-400');
-                    }
+                    if(el.classList.contains('nav-btn')) el.classList.add('active-nav', 'bg-indigo-50', 'text-indigo-600');
+                    if(el.classList.contains('nav-item')) { el.classList.add('active'); el.classList.remove('text-slate-400'); }
                 } else if (el.classList.contains('nav-item')) {
                     el.classList.add('text-slate-400');
                 }
             });
-
-            // Scroll to top
             document.getElementById('main-scroll').scrollTop = 0;
         }
 
         function toggleMobileCart() {
             const panel = document.getElementById('cart-panel');
             const backdrop = document.getElementById('cart-backdrop');
-            
             isMobileCartOpen = !isMobileCartOpen;
-            
-            if(isMobileCartOpen) {
-                panel.classList.add('open');
-                backdrop.classList.add('open');
-            } else {
-                panel.classList.remove('open');
-                backdrop.classList.remove('open');
-            }
+            if(isMobileCartOpen) { panel.classList.add('open'); backdrop.classList.add('open'); }
+            else { panel.classList.remove('open'); backdrop.classList.remove('open'); }
         }
 
-        // ==========================================
-        // DATA LOADING
-        // ==========================================
+        // ================= DATA LOADING =================
         async function loadInventoryData() {
-            const loader = document.getElementById('loading-indicator');
-            loader.classList.remove('hidden');
+            // Skeleton Show
+            document.getElementById('global-skeleton').classList.remove('hidden');
+            document.getElementById('app-content').classList.add('hidden');
 
             if (CONFIG.CSV_URL.includes('YOUR_GOOGLE')) {
-                // Mock Data for Demo
+                // Mock Data with more realistic items
                 inventoryData = [
-                    {ID:'1', Name:'สว่านไร้สาย Bosch', Category:'เครื่องมือช่าง', Image:'https://placehold.co/100', Price:2500, Quantity:12, Details:'18V พร้อมแบต'},
-                    {ID:'2', Name:'สายไฟ THW 2.5', Category:'ไฟฟ้า', Image:'', Price:450, Quantity:50, Details:'ม้วน 100m'},
-                    {ID:'3', Name:'หมวกนิรภัย', Category:'วัสดุสิ้นเปลือง', Image:'', Price:120, Quantity:4, Details:'สีขาว มาตรฐาน มอก.'},
-                    {ID:'4', Name:'Laptop Stand', Category:'IT', Image:'', Price:350, Quantity:20, Details:'Aluminum'},
-                    {ID:'5', Name:'ประแจเลื่อน 10"', Category:'เครื่องมือช่าง', Image:'', Price:180, Quantity:8, Details:''}
+                    {ID:'101', Name:'สว่านไร้สาย Bosch GSB 12V', Category:'เครื่องมือช่าง', Image:'https://placehold.co/200/e0e7ff/4f46e5?text=Drill', Price:2500, Quantity:12, Details:'18V พร้อมแบต 2 ก้อน'},
+                    {ID:'102', Name:'สายไฟ THW 2.5 sq.mm', Category:'ไฟฟ้า', Image:'', Price:450, Quantity:50, Details:'ม้วน 100 เมตร Yazaki'},
+                    {ID:'103', Name:'หมวกนิรภัย (ขาว)', Category:'วัสดุสิ้นเปลือง', Image:'', Price:120, Quantity:4, Details:'มาตรฐาน มอก. แบบปรับหมุน'},
+                    {ID:'104', Name:'Laptop Stand Aluminum', Category:'IT', Image:'', Price:350, Quantity:20, Details:'พับเก็บได้'},
+                    {ID:'105', Name:'ประแจเลื่อน 10 นิ้ว', Category:'เครื่องมือช่าง', Image:'', Price:180, Quantity:8, Details:'Wynns'},
+                    {ID:'106', Name:'เทปพันสายไฟ 3M', Category:'วัสดุสิ้นเปลือง', Image:'', Price:15, Quantity:100, Details:'สีดำ รุ่น 1710'},
+                    {ID:'107', Name:'เบรกเกอร์ 20A', Category:'ไฟฟ้า', Image:'', Price:120, Quantity:30, Details:'Panasonic 2P'}
                 ];
-                setTimeout(() => {
-                    processData();
-                    loader.classList.add('hidden');
-                }, 800);
+                setTimeout(() => { finishLoading(); }, 1500); // Simulate network delay
             } else {
                 Papa.parse(CONFIG.CSV_URL, {
                     download: true,
                     header: true,
                     complete: function(results) {
                         inventoryData = results.data.filter(item => item.Name && item.ID);
-                        processData();
-                        loader.classList.add('hidden');
+                        finishLoading();
                     },
-                    error: function(err) {
-                        Swal.fire('Error', 'Cannot load CSV', 'error');
-                        loader.classList.add('hidden');
-                    }
+                    error: function() { Swal.fire('Error', 'Cannot load CSV', 'error'); }
                 });
             }
         }
 
+        function finishLoading() {
+            processData();
+            document.getElementById('global-skeleton').classList.add('hidden');
+            document.getElementById('app-content').classList.remove('hidden');
+            document.getElementById('app-content').classList.add('fade-in');
+        }
+
         function processData() {
-            // Stats
+            // Stats Update
             document.getElementById('dash-total-items').innerText = inventoryData.length;
             const totalVal = inventoryData.reduce((sum, i) => sum + (parseFloat(i.Price||0) * parseFloat(i.Quantity||0)), 0);
             document.getElementById('dash-total-value').innerText = totalVal.toLocaleString();
             document.getElementById('dash-low-stock').innerText = inventoryData.filter(i => i.Quantity < 5).length;
 
-            // Categories
+            // Generate Chips
             categories = new Set(inventoryData.map(i => i.Category).filter(Boolean));
-            const sel = document.getElementById('filter-category');
-            sel.innerHTML = '<option value="All">ทุกหมวดหมู่</option>';
-            categories.forEach(c => sel.innerHTML += `<option value="${c}">${c}</option>`);
+            const chipsContainer = document.getElementById('filter-chips');
+            chipsContainer.innerHTML = `<button onclick="filterCategory('All', this)" class="chip px-4 py-1.5 rounded-full text-sm whitespace-nowrap transition bg-indigo-600 text-white font-medium shadow-md">ทั้งหมด</button>`;
+            categories.forEach(c => {
+                chipsContainer.innerHTML += `<button onclick="filterCategory('${c}', this)" class="chip px-4 py-1.5 rounded-full text-sm whitespace-nowrap transition bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"> ${c} </button>`;
+            });
 
             renderInventory();
             renderWithdrawGrid();
         }
 
-        // ==========================================
-        // RENDER INVENTORY
-        // ==========================================
+        function filterCategory(cat, btn) {
+            selectedCategory = cat;
+            // Update UI
+            document.querySelectorAll('#filter-chips .chip').forEach(c => {
+                c.className = "chip px-4 py-1.5 rounded-full text-sm whitespace-nowrap transition bg-white border border-slate-200 text-slate-600 hover:bg-slate-50";
+            });
+            btn.className = "chip px-4 py-1.5 rounded-full text-sm whitespace-nowrap transition bg-indigo-600 text-white font-medium shadow-md transform scale-105";
+            renderInventory();
+        }
+
+        // ================= RENDER LISTS =================
         function renderInventory() {
             const search = document.getElementById('search-inventory').value.toLowerCase();
-            const cat = document.getElementById('filter-category').value;
-            
             const filtered = inventoryData.filter(item => {
                 return (item.Name.toLowerCase().includes(search) || (item.ID||'').toLowerCase().includes(search)) &&
-                       (cat === 'All' || item.Category === cat);
+                       (selectedCategory === 'All' || item.Category === selectedCategory);
             });
 
-            // Desktop Table
             const tbody = document.getElementById('inventory-table-body');
-            tbody.innerHTML = '';
-            
-            // Mobile Cards
             const mobileList = document.getElementById('inventory-mobile-list');
+            const emptyState = document.getElementById('inventory-empty');
+            
+            tbody.innerHTML = '';
             mobileList.innerHTML = '';
 
-            filtered.forEach(item => {
-                const img = item.Image ? item.Image : 'https://placehold.co/100?text=No+Img';
-                const qty = parseInt(item.Quantity);
-                const statusColor = qty < 5 ? 'text-rose-600 bg-rose-50' : 'text-emerald-600 bg-emerald-50';
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
 
-                // Desktop Row
+            filtered.forEach(item => {
+                const img = item.Image ? item.Image : `https://placehold.co/100/f1f5f9/94a3b8?text=${item.Name.charAt(0)}`;
+                const qty = parseInt(item.Quantity);
+                const statusClass = qty < 5 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700';
+
+                // Desktop
                 tbody.innerHTML += `
-                    <tr class="hover:bg-slate-50 transition">
+                    <tr class="hover:bg-slate-50 transition border-b border-slate-50 last:border-0">
                         <td class="p-4 flex items-center gap-3">
-                            <img src="${img}" class="w-10 h-10 rounded-lg object-cover bg-slate-200" onerror="this.src='https://placehold.co/50'">
+                            <img src="${img}" class="w-10 h-10 rounded-lg object-cover bg-slate-200 shadow-sm">
                             <span class="font-medium text-slate-800">${item.Name}</span>
                         </td>
-                        <td class="p-4"><span class="px-2 py-1 bg-slate-100 rounded text-xs text-slate-600">${item.Category}</span></td>
-                        <td class="p-4 text-right font-mono">${parseFloat(item.Price).toLocaleString()}</td>
-                        <td class="p-4 text-center"><span class="px-2 py-1 rounded-full text-xs font-bold ${statusColor}">${qty}</span></td>
-                        <td class="p-4 text-slate-500 text-xs truncate max-w-[150px]">${item.Details || '-'}</td>
-                    </tr>
-                `;
+                        <td class="p-4"><span class="px-2.5 py-1 bg-slate-100 rounded-md text-xs text-slate-600 font-medium">${item.Category}</span></td>
+                        <td class="p-4 text-right font-mono text-slate-600">${parseFloat(item.Price).toLocaleString()}</td>
+                        <td class="p-4 text-center"><span class="px-2.5 py-1 rounded-full text-xs font-bold ${statusClass}">${qty}</span></td>
+                        <td class="p-4 text-slate-400 text-xs truncate max-w-[150px]">${item.Details || '-'}</td>
+                    </tr>`;
 
-                // Mobile Card
+                // Mobile
                 mobileList.innerHTML += `
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex gap-4">
-                        <img src="${img}" class="w-16 h-16 rounded-lg object-cover bg-slate-100 flex-shrink-0" onerror="this.src='https://placehold.co/100'">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex gap-4 active:scale-[0.99] transition">
+                        <img src="${img}" class="w-16 h-16 rounded-xl object-cover bg-slate-50 flex-shrink-0">
                         <div class="flex-1 min-w-0">
                             <div class="flex justify-between items-start">
-                                <h4 class="font-bold text-slate-800 truncate pr-2">${item.Name}</h4>
-                                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${statusColor}">${qty}</span>
+                                <h4 class="font-bold text-slate-800 truncate pr-2 text-sm">${item.Name}</h4>
+                                <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${statusClass}">${qty}</span>
                             </div>
-                            <p class="text-xs text-slate-500 mb-2">${item.Category}</p>
-                            <div class="flex justify-between items-end mt-1">
+                            <p class="text-xs text-slate-500 mb-2 mt-1">${item.Category}</p>
+                            <div class="flex justify-between items-end mt-2">
                                 <span class="text-sm font-semibold text-indigo-600">฿${parseFloat(item.Price).toLocaleString()}</span>
-                                <span class="text-[10px] text-slate-400 bg-slate-50 px-2 py-1 rounded border border-slate-100">ID: ${item.ID}</span>
+                                <span class="text-[10px] text-slate-400 bg-slate-50 px-2 py-1 rounded border border-slate-100 tracking-wide">ID: ${item.ID}</span>
                             </div>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             });
         }
 
-        // ==========================================
-        // WITHDRAW SYSTEM
-        // ==========================================
+        // ================= WITHDRAW & CART =================
         function renderWithdrawGrid() {
             const grid = document.getElementById('withdraw-grid');
             const search = document.getElementById('withdraw-search').value.toLowerCase();
-            grid.innerHTML = '';
+            const empty = document.getElementById('withdraw-empty');
             
+            grid.innerHTML = '';
             const filtered = inventoryData.filter(item => item.Name.toLowerCase().includes(search) && parseInt(item.Quantity) > 0);
 
+            if(filtered.length === 0) { empty.classList.remove('hidden'); empty.classList.add('flex'); }
+            else { empty.classList.add('hidden'); empty.classList.remove('flex'); }
+
             filtered.forEach(item => {
-                const img = item.Image ? item.Image : 'https://placehold.co/150?text=Item';
+                const img = item.Image ? item.Image : `https://placehold.co/150/f1f5f9/94a3b8?text=${item.Name.charAt(0)}`;
                 grid.innerHTML += `
-                    <div onclick='addToCart(${JSON.stringify(item)})' class="bg-white rounded-xl shadow-sm border border-slate-100 p-3 cursor-pointer hover:shadow-md hover:border-indigo-300 transition active:scale-95 group relative overflow-hidden">
-                        <div class="absolute top-2 right-2 bg-slate-800 text-white text-[10px] px-1.5 py-0.5 rounded opacity-70">
-                            คงเหลือ ${item.Quantity}
+                    <div onclick='addToCart(${JSON.stringify(item)})' class="bg-white rounded-xl shadow-sm border border-slate-100 p-3 cursor-pointer hover:shadow-lg hover:border-indigo-200 transition transform hover:-translate-y-1 group relative overflow-hidden h-full flex flex-col">
+                        <div class="absolute top-2 right-2 bg-slate-900/80 backdrop-blur-sm text-white text-[10px] px-2 py-1 rounded-md z-10">
+                            เหลือ ${item.Quantity}
                         </div>
-                        <div class="w-full h-24 bg-slate-50 rounded-lg mb-2 overflow-hidden flex items-center justify-center">
-                            <img src="${img}" class="w-full h-full object-cover group-hover:scale-110 transition duration-500" onerror="this.src='https://placehold.co/150'">
+                        <div class="w-full aspect-square bg-slate-50 rounded-lg mb-3 overflow-hidden relative">
+                            <img src="${img}" class="w-full h-full object-cover group-hover:scale-110 transition duration-500">
+                            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition"></div>
                         </div>
-                        <h4 class="text-sm font-bold text-slate-700 line-clamp-1">${item.Name}</h4>
-                        <p class="text-xs text-slate-400 mb-2">${item.Category}</p>
-                        <button class="w-full text-xs py-1.5 rounded bg-indigo-50 text-indigo-600 font-bold group-hover:bg-indigo-600 group-hover:text-white transition">
-                            <i class="fa-solid fa-plus"></i> เพิ่ม
+                        <h4 class="text-sm font-bold text-slate-700 line-clamp-2 leading-tight mb-1 flex-1">${item.Name}</h4>
+                        <p class="text-[10px] text-slate-400 mb-3">${item.Category}</p>
+                        <button class="w-full text-xs py-2 rounded-lg bg-indigo-50 text-indigo-600 font-bold group-hover:bg-indigo-600 group-hover:text-white transition flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-plus"></i> เพิ่มรายการ
                         </button>
-                    </div>
-                `;
+                    </div>`;
             });
         }
 
         function addToCart(itemObj) {
-            // Fix: ensure itemObj is not treated as string if passed via HTML
             const item = typeof itemObj === 'string' ? JSON.parse(itemObj) : itemObj;
-            
             const existing = cart.find(c => c.id === item.ID);
+            
             if(existing) {
-                if(existing.qty < parseInt(item.Quantity)) {
-                    existing.qty++;
-                } else {
-                    const Toast = Swal.mixin({toast: true, position: 'top-end', showConfirmButton: false, timer: 1500});
-                    Toast.fire({icon: 'warning', title: 'สินค้าหมดสตอกแล้ว'});
-                    return;
-                }
+                if(existing.qty < parseInt(item.Quantity)) existing.qty++;
+                else return Swal.fire({icon: 'warning', title: 'สินค้าหมดสตอก', toast: true, position: 'top', timer: 1500, showConfirmButton: false});
             } else {
                 cart.push({ id: item.ID, name: item.Name, qty: 1, max: parseInt(item.Quantity), price: item.Price });
             }
             updateCartUI();
             
-            // Feedback Animation
-            const Toast = Swal.mixin({toast: true, position: 'top', showConfirmButton: false, timer: 800, customClass: { popup: 'rounded-xl' }});
-            Toast.fire({icon: 'success', title: 'เพิ่มลงตะกร้าแล้ว'});
+            // Subtle Toast
+            const Toast = Swal.mixin({toast: true, position: 'bottom-center', showConfirmButton: false, timer: 1000, background: '#1e293b', color: '#fff'});
+            Toast.fire({icon: 'success', title: `เพิ่ม "${item.Name}" แล้ว`});
         }
 
         function updateCartUI() {
@@ -724,30 +774,28 @@
 
             if(cart.length === 0) {
                 container.innerHTML = `
-                    <div class="flex flex-col items-center justify-center h-full text-slate-400 opacity-60 py-8">
-                        <i class="fa-solid fa-basket-shopping text-4xl mb-2"></i>
-                        <span class="text-sm">เลือกสินค้าจากรายการ</span>
+                    <div class="flex flex-col items-center justify-center h-full text-slate-300 py-8">
+                        <i class="fa-solid fa-basket-shopping text-5xl mb-3 opacity-50"></i>
+                        <span class="text-sm">เลือกสินค้าจากรายการทางซ้าย</span>
                     </div>`;
             } else {
                 cart.forEach((c, idx) => {
                     total += c.qty;
                     container.innerHTML += `
-                        <div class="bg-white p-3 rounded-lg border border-slate-100 shadow-sm flex justify-between items-center animate-pulse-once">
-                            <div class="flex-1 min-w-0 pr-2">
+                        <div class="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center group">
+                            <div class="flex-1 min-w-0 pr-3">
                                 <div class="text-sm font-bold text-slate-700 truncate">${c.name}</div>
-                                <div class="text-xs text-slate-400">สูงสุด: ${c.max}</div>
+                                <div class="text-[10px] text-slate-400">สูงสุด: ${c.max}</div>
                             </div>
-                            <div class="flex items-center gap-3">
-                                <span class="font-mono font-bold text-indigo-600">x${c.qty}</span>
-                                <button onclick="removeFromCart(${idx})" class="w-6 h-6 rounded bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition flex items-center justify-center">
-                                    <i class="fa-solid fa-times text-xs"></i>
+                            <div class="flex items-center gap-3 bg-slate-50 rounded-lg p-1">
+                                <span class="font-mono font-bold text-indigo-600 text-sm px-2">x${c.qty}</span>
+                                <button onclick="removeFromCart(${idx})" class="w-6 h-6 rounded-md bg-white text-rose-500 shadow-sm hover:bg-rose-500 hover:text-white transition flex items-center justify-center">
+                                    <i class="fa-solid fa-minus text-[10px]"></i>
                                 </button>
                             </div>
-                        </div>
-                    `;
+                        </div>`;
                 });
             }
-            
             document.getElementById('cart-total-qty').innerText = total + ' ชิ้น';
             document.getElementById('mobile-cart-count').innerText = total;
         }
@@ -757,85 +805,133 @@
             updateCartUI();
         }
 
-        // ==========================================
-        // SUBMIT ACTIONS
-        // ==========================================
+        async function confirmWithdraw() {
+            const project = document.getElementById('project-name').value;
+            const user = document.getElementById('withdrawer-name').value;
+
+            if(cart.length === 0) return Swal.fire({icon:'warning', title:'ตะกร้าว่างเปล่า', text:'กรุณาเลือกสินค้าก่อน'});
+            if(!project || !user) return Swal.fire({icon:'warning', title:'ข้อมูลไม่ครบ', text:'กรุณาระบุชื่อโครงการและผู้เบิก'});
+
+            const result = await Swal.fire({
+                title: 'ยืนยันการเบิก?',
+                html: `<div class="text-left text-sm text-slate-600">โครงการ: <b>${project}</b><br>จำนวน: <b>${document.getElementById('cart-total-qty').innerText}</b></div>`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#4f46e5',
+                confirmButtonText: 'ยืนยัน & พิมพ์',
+                cancelButtonText: 'ยกเลิก'
+            });
+
+            if(result.isConfirmed) {
+                Swal.fire({title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading()});
+                
+                // Save to local history
+                const record = { date: new Date().toLocaleString(), project, user, items: [...cart], id: 'TX-'+Date.now().toString().slice(-6) };
+                withdrawHistory.unshift(record);
+                localStorage.setItem('withdrawHistory', JSON.stringify(withdrawHistory));
+                renderHistory();
+
+                // Generate PDF
+                generatePDF(project, user, cart, record.id);
+                
+                // Clear Cart
+                cart = [];
+                updateCartUI();
+                document.getElementById('project-name').value = '';
+                document.getElementById('withdrawer-name').value = '';
+                if(isMobileCartOpen) toggleMobileCart();
+
+                // Send to Backend (Non-blocking)
+                fetch(CONFIG.WEB_APP_URL, {
+                    method: 'POST', body: JSON.stringify({ action: 'withdraw', project, user, items: record.items }), mode: 'no-cors'
+                }).catch(e => console.log('Backend sync failed', e));
+
+                Swal.fire({icon:'success', title:'เรียบร้อย', text:'บันทึกข้อมูลและดาวน์โหลด PDF แล้ว', timer: 2000, showConfirmButton: false});
+            }
+        }
+
+        // ================= HISTORY =================
+        function renderHistory() {
+            const list = document.getElementById('history-list');
+            list.innerHTML = '';
+            if(withdrawHistory.length === 0) {
+                list.innerHTML = `<div class="p-8 text-center text-slate-400 text-sm">ยังไม่มีประวัติการเบิก</div>`;
+                return;
+            }
+            withdrawHistory.forEach(h => {
+                const itemSummary = h.items.map(i => `${i.name} (${i.qty})`).join(', ');
+                list.innerHTML += `
+                    <div class="p-4 hover:bg-slate-50 transition group">
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="font-bold text-slate-700 text-sm">${h.project}</span>
+                            <span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500">${h.date}</span>
+                        </div>
+                        <div class="text-xs text-slate-500 mb-2 truncate"><i class="fa-solid fa-user mr-1"></i> ${h.user}</div>
+                        <div class="text-xs text-indigo-600 bg-indigo-50 p-2 rounded-lg line-clamp-1 group-hover:line-clamp-none transition-all duration-300">
+                            ${itemSummary}
+                        </div>
+                    </div>`;
+            });
+        }
+        
+        function clearHistory() {
+             Swal.fire({
+                title: 'ล้างประวัติ?',
+                text: "ประวัติในเครื่องนี้จะถูกลบทั้งหมด",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                confirmButtonText: 'ลบเลย'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    withdrawHistory = [];
+                    localStorage.removeItem('withdrawHistory');
+                    renderHistory();
+                }
+            })
+        }
+
+        // ================= ADD ITEM =================
         function submitAddItem(e) {
             e.preventDefault();
             const form = new FormData(e.target);
             const data = Object.fromEntries(form.entries());
             data.action = 'addItem';
 
-            Swal.fire({
-                title: 'กำลังบันทึก...',
-                allowOutsideClick: false,
-                didOpen: () => Swal.showLoading()
-            });
-
-            fetch(CONFIG.WEB_APP_URL, {
-                method: 'POST',
-                body: JSON.stringify(data),
-                mode: 'no-cors'
-            }).then(() => {
-                Swal.fire({icon:'success', title:'บันทึกสำเร็จ', timer: 1500, showConfirmButton: false});
+            Swal.fire({ title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading() });
+            
+            fetch(CONFIG.WEB_APP_URL, { method: 'POST', body: JSON.stringify(data), mode: 'no-cors' })
+            .then(() => {
+                Swal.fire({icon:'success', title:'สำเร็จ', timer: 1500, showConfirmButton: false});
                 e.target.reset();
-                // Sim add
-                inventoryData.push({ID:'NEW', Name:data.name, Category:data.category, Quantity:data.quantity, Price:data.price, Details:data.details, Image:data.image});
+                inventoryData.push({ID:'NEW', Name:data.name, Category:data.category, Quantity:data.quantity, Price:data.price, Image:data.image});
                 processData();
                 navTo('inventory');
-            }).catch(() => Swal.fire('Error', 'Connection Failed', 'error'));
+            }).catch(() => Swal.fire('Error', 'Failed', 'error'));
         }
 
-        async function confirmWithdraw() {
-            const project = document.getElementById('project-name').value;
-            const user = document.getElementById('withdrawer-name').value;
-
-            if(cart.length === 0) return Swal.fire('แจ้งเตือน', 'กรุณาเลือกสินค้า', 'warning');
-            if(!project || !user) return Swal.fire('แจ้งเตือน', 'กรุณากรอกข้อมูลให้ครบ', 'warning');
-
-            const result = await Swal.fire({
-                title: 'ยืนยันการเบิก?',
-                text: `โครงการ ${project} จำนวน ${document.getElementById('cart-total-qty').innerText}`,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#4f46e5',
-                confirmButtonText: 'ยืนยันและปริ้น PDF'
+        // ================= PDF =================
+        function generatePDF(project, user, items, ref) {
+            document.getElementById('print-project').innerText = project;
+            document.getElementById('print-user').innerText = user;
+            document.getElementById('print-date').innerText = new Date().toLocaleDateString('th-TH');
+            document.getElementById('print-ref').innerText = ref;
+            
+            const tbody = document.getElementById('print-items-body');
+            tbody.innerHTML = '';
+            items.forEach((c, i) => {
+                tbody.innerHTML += `<tr>
+                    <td style="border:1px solid #cbd5e1;padding:8px;text-align:center">${i+1}</td>
+                    <td style="border:1px solid #cbd5e1;padding:8px">${c.name}</td>
+                    <td style="border:1px solid #cbd5e1;padding:8px;text-align:center">${c.qty}</td>
+                </tr>`;
             });
 
-            if(!result.isConfirmed) return;
-
-            Swal.fire({title: 'Processing...', didOpen: () => Swal.showLoading()});
-
-            fetch(CONFIG.WEB_APP_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: 'withdraw', project, user, items: cart }),
-                mode: 'no-cors'
-            }).then(() => {
-                // Generate PDF
-                document.getElementById('print-project').innerText = project;
-                document.getElementById('print-user').innerText = user;
-                document.getElementById('print-date').innerText = new Date().toLocaleDateString('th-TH');
-                document.getElementById('print-ref').innerText = 'W-'+Date.now().toString().slice(-6);
-                
-                const tbody = document.getElementById('print-items-body');
-                tbody.innerHTML = '';
-                cart.forEach((c, i) => {
-                    tbody.innerHTML += `<tr><td style="border:1px solid #000;padding:8px;text-align:center">${i+1}</td><td style="border:1px solid #000;padding:8px">${c.name}</td><td style="border:1px solid #000;padding:8px;text-align:center">${c.qty}</td></tr>`;
-                });
-
-                const element = document.getElementById('print-area');
-                element.style.display = 'block';
-                html2pdf().set({ margin: 0.5, filename: `Stock_${project}.pdf`, image: {type:'jpeg', quality:0.98}, html2canvas: {scale:2}, jsPDF: {unit:'in', format:'a4'} }).from(element).save().then(() => {
-                    element.style.display = 'none';
-                    Swal.fire('สำเร็จ', 'บันทึกข้อมูลและสร้างไฟล์ PDF เรียบร้อย', 'success');
-                    cart = [];
-                    updateCartUI();
-                    document.getElementById('project-name').value = '';
-                    document.getElementById('withdrawer-name').value = '';
-                    // Reset UI
-                    if(isMobileCartOpen) toggleMobileCart();
-                });
-            }).catch(() => Swal.fire('Error', 'Failed to connect', 'error'));
+            const element = document.getElementById('print-area');
+            element.style.display = 'block';
+            html2pdf().set({ margin: 0.5, filename: `Requisition_${ref}.pdf`, image: {type:'jpeg', quality:0.98}, html2canvas: {scale:2}, jsPDF: {unit:'in', format:'a4'} }).from(element).save().then(() => {
+                element.style.display = 'none';
+            });
         }
     </script>
 </body>
