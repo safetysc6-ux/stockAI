@@ -60,6 +60,10 @@
         .fade-in { animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
+        /* Slide Up Animation for Mobile Cart */
+        .slide-up { animation: slideUp 0.3s ease-out forwards; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
         /* Hide Print Area */
         #print-area { display: none; }
 
@@ -78,6 +82,41 @@
         /* Mobile Bottom Nav Active State */
         .nav-item.active i { color: #4f46e5; }
         .nav-item.active span { color: #4f46e5; font-weight: 600; }
+
+        /* Mobile Cart Drawer Styles */
+        .mobile-drawer {
+            position: fixed;
+            bottom: 64px; /* Height of bottom nav */
+            left: 0;
+            right: 0;
+            height: 80vh;
+            background: white;
+            z-index: 40;
+            border-top-left-radius: 1.5rem;
+            border-top-right-radius: 1.5rem;
+            box-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.1);
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            transform: translateY(120%); /* Start hidden below */
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .mobile-drawer.open {
+            transform: translateY(0);
+        }
+        .backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 30;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .backdrop.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
     </style>
 </head>
 <body class="text-slate-800 h-screen flex flex-col md:flex-row overflow-hidden">
@@ -288,13 +327,16 @@
 
             <!-- 4. WITHDRAW -->
             <section id="withdraw" class="page-section hidden fade-in h-full flex flex-col">
-                <!-- Cart Summary (Mobile Sticky Top) -->
-                <div class="md:hidden bg-slate-800 text-white p-3 rounded-xl mb-3 shadow-lg flex justify-between items-center cursor-pointer" onclick="toggleMobileCart()">
-                    <div class="flex items-center gap-2">
-                        <div class="bg-indigo-500 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs" id="mobile-cart-count">0</div>
-                        <span class="text-sm font-medium">รายการในตะกร้า</span>
+                <!-- Mobile Cart Toggle Button (Sticky Top) -->
+                <div class="md:hidden bg-indigo-600 text-white p-4 rounded-xl mb-4 shadow-lg shadow-indigo-200 flex justify-between items-center cursor-pointer active:scale-95 transition" onclick="toggleMobileCart()">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-white text-indigo-600 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm" id="mobile-cart-count">0</div>
+                        <span class="font-bold">รายการในตะกร้า</span>
                     </div>
-                    <i class="fa-solid fa-chevron-down" id="cart-chevron"></i>
+                    <div class="flex items-center gap-2 text-sm opacity-90">
+                        <span>ดูรายการ</span>
+                        <i class="fa-solid fa-chevron-up"></i>
+                    </div>
                 </div>
 
                 <!-- Desktop Layout -->
@@ -303,17 +345,22 @@
                     <div class="flex-1 flex flex-col h-full">
                         <input type="text" id="withdraw-search" placeholder="🔍 ค้นหาสินค้าเพื่อเบิก..." class="w-full p-3 bg-white border border-slate-200 rounded-xl shadow-sm mb-4 focus:ring-2 focus:ring-indigo-500 outline-none" onkeyup="renderWithdrawGrid()">
                         
-                        <div id="withdraw-grid" class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto pb-20 md:pb-0 pr-1">
+                        <div id="withdraw-grid" class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto pb-32 md:pb-0 pr-1">
                             <!-- Items Injected Here -->
                         </div>
                     </div>
 
-                    <!-- Cart Drawer (Desktop: Sticky Right / Mobile: Expandable) -->
-                    <div id="cart-panel" class="md:w-96 bg-white md:rounded-2xl shadow-xl border border-slate-100 flex flex-col h-auto md:h-full hidden md:flex">
-                        <div class="p-4 border-b border-slate-100 bg-slate-50 md:rounded-t-2xl">
+                    <!-- Cart Drawer (Responsive: Drawer on Mobile / Panel on Desktop) -->
+                    <!-- This div handles both behaviors via JS toggling classes -->
+                    <div id="cart-panel" class="mobile-drawer md:mobile-drawer-reset md:w-96 bg-white md:rounded-2xl md:shadow-xl md:border md:border-slate-100 flex flex-col md:h-full md:relative md:z-auto md:transform-none md:bottom-auto">
+                        <div class="p-4 border-b border-slate-100 bg-slate-50 md:rounded-t-2xl flex justify-between items-center">
                             <h3 class="font-bold text-slate-800 flex items-center gap-2">
                                 <i class="fa-solid fa-cart-shopping text-indigo-600"></i> ตะกร้าเบิกของ
                             </h3>
+                            <!-- Close button for mobile only -->
+                            <button onclick="toggleMobileCart()" class="md:hidden w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
                         </div>
 
                         <div class="p-4 space-y-3 flex-shrink-0">
@@ -334,16 +381,19 @@
                             </div>
                         </div>
 
-                        <div class="p-4 border-t border-slate-100 bg-white md:rounded-b-2xl shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
+                        <div class="p-4 border-t border-slate-100 bg-white md:rounded-b-2xl shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10 pb-8 md:pb-4">
                             <div class="flex justify-between mb-4 text-sm font-semibold text-slate-700">
                                 <span>รวมรายการ</span>
                                 <span id="cart-total-qty">0 ชิ้น</span>
                             </div>
-                            <button onclick="confirmWithdraw()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-xl shadow-lg transition active:scale-95 flex justify-center items-center gap-2">
+                            <button onclick="confirmWithdraw()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3.5 rounded-xl shadow-lg transition active:scale-95 flex justify-center items-center gap-2">
                                 <span>ยืนยันการเบิก</span> <i class="fa-solid fa-arrow-right"></i>
                             </button>
                         </div>
                     </div>
+                    
+                    <!-- Backdrop for mobile -->
+                    <div id="cart-backdrop" class="backdrop md:hidden" onclick="toggleMobileCart()"></div>
                 </div>
             </section>
         </div>
@@ -488,18 +538,16 @@
 
         function toggleMobileCart() {
             const panel = document.getElementById('cart-panel');
-            const icon = document.getElementById('cart-chevron');
+            const backdrop = document.getElementById('cart-backdrop');
+            
             isMobileCartOpen = !isMobileCartOpen;
             
             if(isMobileCartOpen) {
-                panel.classList.remove('hidden');
-                icon.className = "fa-solid fa-chevron-up";
-                // Add border or shadow to separate
-                panel.classList.add('border-t-2', 'border-indigo-500');
+                panel.classList.add('open');
+                backdrop.classList.add('open');
             } else {
-                panel.classList.add('hidden');
-                icon.className = "fa-solid fa-chevron-down";
-                panel.classList.remove('border-t-2', 'border-indigo-500');
+                panel.classList.remove('open');
+                backdrop.classList.remove('open');
             }
         }
 
