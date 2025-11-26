@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบสตอกอุปกรณ์ - Project Management</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PapaParse สำหรับอ่าน CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- SweetAlert2 สำหรับแจ้งเตือนสวยๆ -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- html2pdf สำหรับปริ้น PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap');
+        body { font-family: 'Sarabun', sans-serif; }
+        .hidden-section { display: none; }
+        .active-section { display: block; animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        /* สไตล์สำหรับใบเบิก (ซ่อนตอนใช้งานปกติ แสดงตอนปริ้น) */
+        #print-area { display: none; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col md:flex-row">
+
+    <!-- Sidebar / Mobile Menu -->
+    <aside class="bg-slate-800 text-white w-full md:w-64 flex-shrink-0">
+        <div class="p-4 bg-slate-900 font-bold text-xl flex justify-between items-center">
+            <span><i class="fa-solid fa-boxes-stacked mr-2"></i>Project Stock</span>
+            <button id="mobile-menu-btn" class="md:hidden"><i class="fa-solid fa-bars"></i></button>
+        </div>
+        <nav id="nav-menu" class="p-4 space-y-2 hidden md:block">
+            <button onclick="showSection('dashboard')" class="w-full text-left p-3 rounded hover:bg-slate-700 transition"><i class="fa-solid fa-chart-pie mr-2"></i> ภาพรวม (Dashboard)</button>
+            <button onclick="showSection('inventory')" class="w-full text-left p-3 rounded hover:bg-slate-700 transition"><i class="fa-solid fa-list mr-2"></i> รายการอุปกรณ์</button>
+            <button onclick="showSection('add-item')" class="w-full text-left p-3 rounded hover:bg-slate-700 transition"><i class="fa-solid fa-plus-circle mr-2"></i> เพิ่มอุปกรณ์ใหม่</button>
+            <button onclick="showSection('withdraw')" class="w-full text-left p-3 rounded hover:bg-slate-700 transition"><i class="fa-solid fa-dolly mr-2"></i> เบิกจ่าย (Withdraw)</button>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-4 md:p-8 overflow-y-auto">
+        
+        <!-- Header Status -->
+        <div class="flex justify-between items-center mb-6">
+            <h2 id="page-title" class="text-2xl font-bold text-gray-700">ภาพรวม</h2>
+            <div id="loading-indicator" class="hidden text-blue-600 font-semibold"><i class="fa-solid fa-spinner fa-spin mr-2"></i> กำลังโหลดข้อมูล...</div>
+        </div>
+
+        <!-- 1. DASHBOARD SECTION -->
+        <div id="dashboard" class="active-section space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-lg shadow border-l-4 border-blue-500">
+                    <div class="text-gray-500">รายการทั้งหมด</div>
+                    <div class="text-3xl font-bold" id="dash-total-items">0</div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow border-l-4 border-green-500">
+                    <div class="text-gray-500">มูลค่ารวมในคลัง</div>
+                    <div class="text-3xl font-bold" id="dash-total-value">0 บาท</div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow border-l-4 border-orange-500">
+                    <div class="text-gray-500">รายการสินค้าเหลือน้อย (<5)</div>
+                    <div class="text-3xl font-bold" id="dash-low-stock">0</div>
+                </div>
+            </div>
+
+            <!-- คำแนะนำการตั้งค่า -->
+            <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-sm text-yellow-800">
+                <strong><i class="fa-solid fa-circle-info"></i> คำแนะนำ:</strong> หากข้อมูลไม่ขึ้น โปรดตรวจสอบการตั้งค่า <code>CONFIG</code> ในโค้ด JavaScript ให้ใส่ URL ของ Google CSV และ Web App URL ให้ถูกต้อง
+            </div>
+        </div>
+
+        <!-- 2. INVENTORY LIST SECTION -->
+        <div id="inventory" class="hidden-section">
+            <div class="mb-4 flex gap-2">
+                <input type="text" id="search-inventory" placeholder="ค้นหาชื่ออุปกรณ์..." class="border p-2 rounded w-full md:w-1/3" onkeyup="renderInventory()">
+                <select id="filter-category" class="border p-2 rounded w-full md:w-1/4" onchange="renderInventory()">
+                    <option value="All">ทุกหมวดหมู่</option>
+                </select>
+            </div>
+            <div class="bg-white rounded-lg shadow overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-gray-100 text-gray-600 uppercase text-sm">
+                        <tr>
+                            <th class="p-3">รูปภาพ</th>
+                            <th class="p-3">ชื่ออุปกรณ์</th>
+                            <th class="p-3">หมวดหมู่</th>
+                            <th class="p-3 text-right">ราคา/ชิ้น</th>
+                            <th class="p-3 text-center">คงเหลือ</th>
+                            <th class="p-3">รายละเอียด</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventory-table-body" class="text-sm">
+                        <!-- Data will be injected here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 3. ADD ITEM SECTION -->
+        <div id="add-item" class="hidden-section">
+            <div class="bg-white p-6 rounded-lg shadow max-w-2xl mx-auto">
+                <h3 class="text-xl font-bold mb-4 border-b pb-2">เพิ่มข้อมูลอุปกรณ์ใหม่</h3>
+                <form id="add-item-form" onsubmit="submitAddItem(event)" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-gray-700">ชื่ออุปกรณ์ *</label>
+                            <input type="text" name="name" required class="w-full border p-2 rounded focus:ring focus:ring-blue-200">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700">หมวดหมู่ *</label>
+                            <input type="text" name="category" list="category-list" required class="w-full border p-2 rounded focus:ring focus:ring-blue-200" placeholder="เช่น ไฟฟ้า, ประปา">
+                            <datalist id="category-list">
+                                <option value="ไฟฟ้า">
+                                <option value="เครื่องมือช่าง">
+                                <option value="วัสดุสิ้นเปลือง">
+                                <option value="IT">
+                            </datalist>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700">ลิงก์รูปภาพ (URL)</label>
+                        <input type="url" name="image" class="w-full border p-2 rounded focus:ring focus:ring-blue-200" placeholder="https://example.com/image.jpg">
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-gray-700">ราคาต่อหน่วย (บาท)</label>
+                            <input type="number" name="price" required min="0" class="w-full border p-2 rounded focus:ring focus:ring-blue-200">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700">จำนวนเริ่มต้น</label>
+                            <input type="number" name="quantity" required min="1" class="w-full border p-2 rounded focus:ring focus:ring-blue-200">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700">รายละเอียดเพิ่มเติม</label>
+                        <textarea name="details" rows="3" class="w-full border p-2 rounded focus:ring focus:ring-blue-200"></textarea>
+                    </div>
+
+                    <button type="submit" class="w-full bg-green-600 text-white p-3 rounded hover:bg-green-700 transition font-bold">
+                        <i class="fa-solid fa-save mr-2"></i> บันทึกข้อมูล
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 4. WITHDRAW SECTION -->
+        <div id="withdraw" class="hidden-section">
+            <div class="flex flex-col md:flex-row gap-6">
+                <!-- Product Selection -->
+                <div class="md:w-2/3 space-y-4">
+                    <div class="bg-white p-4 rounded shadow">
+                        <input type="text" id="withdraw-search" placeholder="ค้นหาเพื่อเบิก..." class="w-full border p-2 rounded mb-4" onkeyup="renderWithdrawGrid()">
+                        <div id="withdraw-grid" class="grid grid-cols-2 md:grid-cols-3 gap-4 h-96 overflow-y-auto p-2">
+                            <!-- Clickable items -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cart / Checkout -->
+                <div class="md:w-1/3">
+                    <div class="bg-white p-4 rounded shadow sticky top-4">
+                        <h3 class="font-bold text-lg mb-4"><i class="fa-solid fa-cart-shopping"></i> รายการเบิก</h3>
+                        
+                        <div class="mb-4">
+                            <label class="text-sm font-bold text-gray-700">ชื่อโครงการ / Project *</label>
+                            <input type="text" id="project-name" class="w-full border p-2 rounded bg-yellow-50" placeholder="ระบุชื่อโครงการ...">
+                        </div>
+                         <div class="mb-4">
+                            <label class="text-sm font-bold text-gray-700">ชื่อผู้เบิก *</label>
+                            <input type="text" id="withdrawer-name" class="w-full border p-2 rounded bg-yellow-50" placeholder="ชื่อของคุณ...">
+                        </div>
+
+                        <div id="cart-items" class="space-y-2 mb-4 max-h-60 overflow-y-auto border-t border-b py-2">
+                            <p class="text-gray-400 text-center text-sm italic py-4">ยังไม่มีรายการที่เลือก</p>
+                        </div>
+
+                        <div class="flex justify-between font-bold text-lg mb-4">
+                            <span>รวมทั้งหมด:</span>
+                            <span id="cart-total-qty">0 ชิ้น</span>
+                        </div>
+
+                        <button onclick="confirmWithdraw()" class="w-full bg-blue-600 text-white p-3 rounded hover:bg-blue-700 font-bold mb-2">
+                            <i class="fa-solid fa-check-circle"></i> ยืนยันการเบิก
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- PRINT TEMPLATE (Hidden from view, used by html2pdf) -->
+    <div id="print-area">
+        <div style="padding: 20px; font-family: 'Sarabun', sans-serif;">
+            <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px;">
+                <h1 style="font-size: 24px; font-weight: bold; margin: 0;">ใบเบิกอุปกรณ์ / Material Request Note</h1>
+                <p style="margin: 5px 0;">ระบบจัดการสตอกโครงการ (Project Stock System)</p>
+            </div>
+            
+            <table style="width: 100%; margin-bottom: 20px;">
+                <tr>
+                    <td><strong>โครงการ (Project):</strong> <span id="print-project"></span></td>
+                    <td style="text-align: right;"><strong>วันที่ (Date):</strong> <span id="print-date"></span></td>
+                </tr>
+                <tr>
+                    <td><strong>ผู้เบิก (Requester):</strong> <span id="print-user"></span></td>
+                    <td style="text-align: right;"><strong>เลขที่เอกสาร:</strong> <span id="print-ref"></span></td>
+                </tr>
+            </table>
+
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                <thead>
+                    <tr style="background-color: #eee;">
+                        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 10%;">ลำดับ</th>
+                        <th style="border: 1px solid #000; padding: 8px; text-align: left;">รายการ (Description)</th>
+                        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 15%;">จำนวน</th>
+                    </tr>
+                </thead>
+                <tbody id="print-items-body">
+                    <!-- Items -->
+                </tbody>
+            </table>
+
+            <div style="display: flex; justify-content: space-between; margin-top: 50px;">
+                <div style="text-align: center; width: 40%;">
+                    <div style="border-bottom: 1px solid #000; height: 30px;"></div>
+                    <p>ผู้เบิกของ (Requester)</p>
+                </div>
+                <div style="text-align: center; width: 40%;">
+                    <div style="border-bottom: 1px solid #000; height: 30px;"></div>
+                    <p>ผู้อนุมัติ (Approver)</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURATION (ตั้งค่าตรงนี้)
+        // ==========================================
+        const CONFIG = {
+            // ลิงก์ CSV จาก File > Share > Publish to web (เลือก Sheet 'Inventory')
+            // ใส่ Link CSV จริงของคุณที่นี่
+            CSV_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSa3BzLpNVCfivB67ZqOVNZPHNF1M-75GMfOLfSWs3A3pIH1MTr5A8TI7mqHS6i-VB10l6caAFHshX0/pub?gid=0&single=true&output=csv',
+            
+            // ลิงก์ Web App จาก Apps Script Deploy
+            // ใส่ Link Script App จริงของคุณที่นี่
+            WEB_APP_URL: 'https://script.google.com/macros/s/AKfycby_M5QWZv4jd2jbezXjBf1D11ICVmSgGnR65FdNudgE-0x2RABnV5K-NIQ0HpKDBDdw/exec' 
+        };
+
+        // ==========================================
+        // GLOBAL STATE
+        // ==========================================
+        let inventoryData = [];
+        let cart = [];
+        let categories = new Set();
+
+        // ==========================================
+        // INIT & NAVIGATION
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', () => {
+            loadInventoryData();
+            
+            // Mobile menu toggle
+            document.getElementById('mobile-menu-btn').addEventListener('click', () => {
+                document.getElementById('nav-menu').classList.toggle('hidden');
+            });
+        });
+
+        function showSection(sectionId) {
+            document.querySelectorAll('main > div[id]').forEach(div => {
+                div.classList.add('hidden-section');
+                div.classList.remove('active-section');
+            });
+            document.getElementById(sectionId).classList.remove('hidden-section');
+            document.getElementById(sectionId).classList.add('active-section');
+            document.getElementById('page-title').innerText = getTitle(sectionId);
+            
+            if (window.innerWidth < 768) {
+                document.getElementById('nav-menu').classList.add('hidden');
+            }
+        }
+
+        function getTitle(id) {
+            const titles = {
+                'dashboard': 'ภาพรวมระบบ',
+                'inventory': 'รายการอุปกรณ์ในคลัง',
+                'add-item': 'เพิ่มอุปกรณ์ใหม่',
+                'withdraw': 'เบิกจ่ายอุปกรณ์'
+            };
+            return titles[id] || 'ระบบสตอก';
+        }
+
+        // ==========================================
+        // DATA HANDLING
+        // ==========================================
+        async function loadInventoryData() {
+            const loader = document.getElementById('loading-indicator');
+            loader.classList.remove('hidden');
+
+            // ถ้าไม่มี URL ให้ใช้ข้อมูลจำลอง (Demo Mode)
+            if (CONFIG.CSV_URL.includes('YOUR_CSV_LINK_HERE')) {
+                console.warn('Using Mock Data: Please config CSV_URL');
+                inventoryData = [
+                    {ID: '1', Name: 'สว่านไร้สาย', Category: 'เครื่องมือช่าง', Image: '', Details: 'Bosch 18V', Price: 2500, Quantity: 10},
+                    {ID: '2', Name: 'น็อตเกลียวปล่อย', Category: 'วัสดุสิ้นเปลือง', Image: '', Details: 'กล่องละ 100 ตัว', Price: 50, Quantity: 50},
+                    {ID: '3', Name: 'สายไฟ THW 1.5', Category: 'ไฟฟ้า', Image: '', Details: 'ม้วน 100 เมตร', Price: 450, Quantity: 20}
+                ];
+                processData();
+                loader.classList.add('hidden');
+                return;
+            }
+
+            try {
+                Papa.parse(CONFIG.CSV_URL, {
+                    download: true,
+                    header: true,
+                    complete: function(results) {
+                        inventoryData = results.data.filter(item => item.Name && item.ID); // Filter empty rows
+                        processData();
+                        loader.classList.add('hidden');
+                    },
+                    error: function(err) {
+                        Swal.fire('Error', 'โหลดข้อมูลไม่สำเร็จ: ' + err, 'error');
+                        loader.classList.add('hidden');
+                    }
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function processData() {
+            // Extract Categories
+            categories = new Set(inventoryData.map(item => item.Category).filter(Boolean));
+            const catSelect = document.getElementById('filter-category');
+            catSelect.innerHTML = '<option value="All">ทุกหมวดหมู่</option>';
+            categories.forEach(cat => {
+                catSelect.innerHTML += `<option value="${cat}">${cat}</option>`;
+            });
+
+            // Update Dashboard
+            document.getElementById('dash-total-items').innerText = inventoryData.length;
+            const totalVal = inventoryData.reduce((sum, item) => sum + (parseFloat(item.Price || 0) * parseFloat(item.Quantity || 0)), 0);
+            document.getElementById('dash-total-value').innerText = totalVal.toLocaleString() + ' บาท';
+            const lowStock = inventoryData.filter(item => parseInt(item.Quantity) < 5).length;
+            document.getElementById('dash-low-stock').innerText = lowStock;
+
+            renderInventory();
+            renderWithdrawGrid();
+        }
+
+        // ==========================================
+        // INVENTORY PAGE
+        // ==========================================
+        function renderInventory() {
+            const tbody = document.getElementById('inventory-table-body');
+            const search = document.getElementById('search-inventory').value.toLowerCase();
+            const catFilter = document.getElementById('filter-category').value;
+
+            tbody.innerHTML = '';
+
+            const filtered = inventoryData.filter(item => {
+                const matchName = item.Name.toLowerCase().includes(search);
+                const matchCat = catFilter === 'All' || item.Category === catFilter;
+                return matchName && matchCat;
+            });
+
+            filtered.forEach(item => {
+                const imgDisplay = item.Image ? `<img src="${item.Image}" class="w-10 h-10 object-cover rounded" onerror="this.src='https://placehold.co/50'">` : `<div class="w-10 h-10 bg-gray-200 rounded flex items-center justify-center"><i class="fa-solid fa-image text-gray-400"></i></div>`;
+                
+                const tr = document.createElement('tr');
+                tr.className = "border-b hover:bg-gray-50";
+                tr.innerHTML = `
+                    <td class="p-3">${imgDisplay}</td>
+                    <td class="p-3 font-semibold">${item.Name}</td>
+                    <td class="p-3"><span class="bg-gray-200 px-2 py-1 rounded text-xs text-gray-700">${item.Category}</span></td>
+                    <td class="p-3 text-right">${parseFloat(item.Price).toLocaleString()}</td>
+                    <td class="p-3 text-center font-bold ${parseInt(item.Quantity) < 5 ? 'text-red-600' : 'text-green-600'}">${item.Quantity}</td>
+                    <td class="p-3 text-sm text-gray-500">${item.Details || '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // ==========================================
+        // ADD ITEM LOGIC
+        // ==========================================
+        function submitAddItem(e) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+            
+            data.action = 'addItem';
+
+            Swal.fire({
+                title: 'กำลังบันทึก...',
+                didOpen: () => Swal.showLoading()
+            });
+
+            // Send to GAS
+            fetch(CONFIG.WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify(data),
+                mode: 'no-cors' // สำคัญสำหรับ GAS Webhook
+            }).then(() => {
+                Swal.fire('สำเร็จ', 'บันทึกข้อมูลแล้ว (ข้อมูลจะอัปเดตในตารางภายในไม่กี่นาที)', 'success');
+                form.reset();
+                // Simulation update locally
+                inventoryData.push({
+                    ID: 'TEMP', Name: data.name, Category: data.category, 
+                    Image: data.image, Details: data.details, Price: data.price, Quantity: data.quantity
+                });
+                processData();
+            }).catch(err => {
+                Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
+            });
+        }
+
+        // ==========================================
+        // WITHDRAW LOGIC
+        // ==========================================
+        function renderWithdrawGrid() {
+            const grid = document.getElementById('withdraw-grid');
+            const search = document.getElementById('withdraw-search').value.toLowerCase();
+            grid.innerHTML = '';
+
+            const filtered = inventoryData.filter(item => item.Name.toLowerCase().includes(search) && parseInt(item.Quantity) > 0);
+
+            filtered.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "bg-white border rounded p-3 hover:shadow-md cursor-pointer transition flex flex-col items-center text-center relative";
+                div.onclick = () => addToCart(item);
+                
+                // Image fallback
+                const imgUrl = item.Image || 'https://placehold.co/100?text=No+Img';
+                
+                div.innerHTML = `
+                    <div class="absolute top-1 right-1 bg-blue-100 text-blue-800 text-xs px-2 rounded-full">${item.Quantity}</div>
+                    <img src="${imgUrl}" class="h-20 w-20 object-cover mb-2 rounded" onerror="this.src='https://placehold.co/100'">
+                    <div class="font-bold text-sm line-clamp-2">${item.Name}</div>
+                    <div class="text-xs text-gray-500">${item.Category}</div>
+                `;
+                grid.appendChild(div);
+            });
+        }
+
+        function addToCart(item) {
+            const existing = cart.find(c => c.id === item.ID);
+            const currentStock = parseInt(item.Quantity);
+            
+            if (existing) {
+                if (existing.qty < currentStock) {
+                    existing.qty++;
+                } else {
+                    Swal.fire('แจ้งเตือน', 'จำนวนสินค้าไม่พอ', 'warning');
+                }
+            } else {
+                cart.push({
+                    id: item.ID,
+                    name: item.Name,
+                    price: parseFloat(item.Price),
+                    qty: 1,
+                    max: currentStock
+                });
+            }
+            updateCartUI();
+        }
+
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            const cartContainer = document.getElementById('cart-items');
+            cartContainer.innerHTML = '';
+            let totalQty = 0;
+
+            if (cart.length === 0) {
+                cartContainer.innerHTML = '<p class="text-gray-400 text-center text-sm italic py-4">ยังไม่มีรายการที่เลือก</p>';
+            }
+
+            cart.forEach((item, index) => {
+                totalQty += item.qty;
+                const div = document.createElement('div');
+                div.className = "flex justify-between items-center bg-gray-50 p-2 rounded text-sm";
+                div.innerHTML = `
+                    <div class="flex-1 truncate pr-2">${item.name}</div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold">x${item.qty}</span>
+                        <button onclick="removeFromCart(${index})" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `;
+                cartContainer.appendChild(div);
+            });
+
+            document.getElementById('cart-total-qty').innerText = totalQty + ' ชิ้น';
+        }
+
+        async function confirmWithdraw() {
+            const project = document.getElementById('project-name').value;
+            const user = document.getElementById('withdrawer-name').value;
+
+            if (cart.length === 0) return Swal.fire('เตือน', 'กรุณาเลือกสินค้าก่อน', 'warning');
+            if (!project) return Swal.fire('เตือน', 'กรุณาระบุชื่อโครงการ', 'warning');
+            if (!user) return Swal.fire('เตือน', 'กรุณาระบุชื่อผู้เบิก', 'warning');
+
+            // 1. Generate PDF First (Optional: ask user if they want to print)
+            const proceed = await Swal.fire({
+                title: 'ยืนยันการเบิก?',
+                text: `โครงการ: ${project} จำนวน ${cart.reduce((a,b)=>a+b.qty,0)} ชิ้น`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'ยืนยันและปริ้น PDF',
+                cancelButtonText: 'ยกเลิก'
+            });
+
+            if (!proceed.isConfirmed) return;
+
+            // Prepare Data
+            const payload = {
+                action: 'withdraw',
+                project: project,
+                user: user,
+                items: cart
+            };
+
+            Swal.fire({ title: 'กำลังประมวลผล...', didOpen: () => Swal.showLoading() });
+
+            // 2. Send to Backend
+            fetch(CONFIG.WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload),
+                mode: 'no-cors'
+            }).then(() => {
+                // 3. Print PDF
+                printPDF(project, user, cart);
+
+                Swal.fire('สำเร็จ', 'ทำรายการเบิกเรียบร้อย แจ้งเตือนไปยัง Telegram แล้ว', 'success');
+                cart = [];
+                document.getElementById('project-name').value = '';
+                document.getElementById('withdrawer-name').value = '';
+                updateCartUI();
+                
+                // Reload data (Simulation delay)
+                setTimeout(loadInventoryData, 2000);
+
+            }).catch(err => {
+                Swal.fire('Error', 'เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
+            });
+        }
+
+        // ==========================================
+        // PDF GENERATION
+        // ==========================================
+        function printPDF(project, user, items) {
+            // Fill Data
+            document.getElementById('print-project').innerText = project;
+            document.getElementById('print-user').innerText = user;
+            document.getElementById('print-date').innerText = new Date().toLocaleDateString('th-TH');
+            document.getElementById('print-ref').innerText = 'REQ-' + new Date().getTime().toString().substr(-6);
+
+            const tbody = document.getElementById('print-items-body');
+            tbody.innerHTML = '';
+            items.forEach((item, idx) => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="border: 1px solid #000; padding: 8px; text-align: center;">${idx + 1}</td>
+                        <td style="border: 1px solid #000; padding: 8px;">${item.name}</td>
+                        <td style="border: 1px solid #000; padding: 8px; text-align: center;">${item.qty}</td>
+                    </tr>
+                `;
+            });
+
+            // Generate
+            const element = document.getElementById('print-area');
+            element.style.display = 'block'; // Show momentarily
+            
+            const opt = {
+                margin: 0.5,
+                filename: `Withdraw_${project}_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                element.style.display = 'none'; // Hide again
+            });
+        }
+    </script>
+</body>
+</html>
