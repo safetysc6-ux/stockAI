@@ -125,6 +125,9 @@
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
         }
+        /* Modal Style */
+        .modal { transition: opacity 0.25s ease; }
+        body.modal-active { overflow-x: hidden; overflow-y: visible !important; }
     </style>
 </head>
 <body class="text-slate-800 h-screen flex flex-col md:flex-row overflow-hidden bg-slate-50">
@@ -296,7 +299,7 @@
                                     <th class="p-4">หมวดหมู่</th>
                                     <th class="p-4 text-right">ราคา</th>
                                     <th class="p-4 text-center">คงเหลือ</th>
-                                    <th class="p-4">รายละเอียด</th>
+                                    <th class="p-4 text-center">จัดการ</th>
                                 </tr>
                             </thead>
                             <tbody id="inventory-table-body" class="divide-y divide-slate-100 text-sm text-slate-700">
@@ -331,12 +334,12 @@
                         </div>
                         
                         <form id="add-item-form" onsubmit="submitAddItem(event)" class="p-6 md:p-8">
-                            <div class="floating-input-group">
+                            <div class="floating-input-group mb-4">
                                 <label class="floating-label">ชื่ออุปกรณ์ *</label>
                                 <input type="text" name="name" required class="floating-input" placeholder=" ">
                             </div>
 
-                            <div class="floating-input-group">
+                            <div class="floating-input-group mb-4">
                                 <label class="floating-label">หมวดหมู่ *</label>
                                 <input type="text" name="category" list="category-list" required class="floating-input" placeholder=" ">
                                 <datalist id="category-list">
@@ -344,12 +347,12 @@
                                 </datalist>
                             </div>
 
-                            <div class="floating-input-group">
+                            <div class="floating-input-group mb-4">
                                 <label class="floating-label">รูปภาพ (URL)</label>
                                 <input type="url" name="image" class="floating-input" placeholder=" ">
                             </div>
 
-                            <div class="grid grid-cols-2 gap-4">
+                            <div class="grid grid-cols-2 gap-4 mb-4">
                                 <div class="floating-input-group">
                                     <label class="floating-label">ราคา/หน่วย</label>
                                     <input type="number" name="price" required class="floating-input" placeholder=" ">
@@ -360,7 +363,7 @@
                                 </div>
                             </div>
 
-                            <div class="floating-input-group">
+                            <div class="floating-input-group mb-4">
                                 <label class="floating-label">รายละเอียด</label>
                                 <textarea name="details" rows="3" class="floating-input" placeholder=" "></textarea>
                             </div>
@@ -492,59 +495,37 @@
         </button>
     </nav>
 
-    <!-- PDF Print Template (Hidden) -->
-    <div id="print-area">
-        <!-- (Same print template) -->
-        <div style="padding: 40px; font-family: 'Sarabun', sans-serif; color: #1e293b;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; border-bottom: 3px solid #1e293b; padding-bottom: 20px;">
-                <div>
-                    <div style="font-size: 28px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">ใบเบิกวัสดุอุปกรณ์</div>
-                    <div style="font-size: 14px; color: #64748b;">Material Requisition Note</div>
-                </div>
-                <div style="text-align: right;">
-                    <div style="font-size: 16px; font-weight: bold;">PROJECT STOCK SYSTEM</div>
-                    <div style="font-size: 12px; color: #64748b;">เอกสารภายในองค์กร</div>
-                </div>
+    <!-- EDIT ITEM MODAL -->
+    <div id="edit-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
+        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50" onclick="closeEditModal()"></div>
+        <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded-2xl shadow-lg z-50 overflow-y-auto transform scale-95 transition-transform duration-300">
+            <div class="bg-amber-50 px-6 py-4 border-b border-amber-100 flex justify-between items-center">
+                <p class="font-bold text-amber-800 text-lg"><i class="fa-solid fa-pen-to-square mr-2"></i> แก้ไขสินค้า</p>
+                <div class="cursor-pointer z-50" onclick="closeEditModal()"><i class="fa-solid fa-times text-amber-800"></i></div>
             </div>
-            
-            <table style="width: 100%; margin-bottom: 30px;">
-                <tr>
-                    <td style="padding: 8px 0; width: 60%;"><strong>โครงการ (Project):</strong> <span id="print-project" style="border-bottom: 1px dotted #000; padding: 0 10px;"></span></td>
-                    <td style="text-align: right;"><strong>วันที่ (Date):</strong> <span id="print-date"></span></td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px 0;"><strong>ผู้เบิก (Requester):</strong> <span id="print-user" style="border-bottom: 1px dotted #000; padding: 0 10px;"></span></td>
-                    <td style="text-align: right;"><strong>เลขที่ (No.):</strong> <span id="print-ref" style="font-family: monospace; font-weight: bold;"></span></td>
-                </tr>
-            </table>
-
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 50px;">
-                <thead>
-                    <tr style="background-color: #f1f5f9; color: #334155;">
-                        <th style="border: 1px solid #cbd5e1; padding: 12px; width: 10%;">ลำดับ</th>
-                        <th style="border: 1px solid #cbd5e1; padding: 12px; text-align: left;">รายการ (Description)</th>
-                        <th style="border: 1px solid #cbd5e1; padding: 12px; width: 15%; text-align: center;">จำนวน</th>
-                    </tr>
-                </thead>
-                <tbody id="print-items-body"></tbody>
-            </table>
-
-            <div style="display: flex; justify-content: space-between; margin-top: 80px; page-break-inside: avoid;">
-                <div style="text-align: center; width: 40%;">
-                    <div style="border-bottom: 1px solid #94a3b8; height: 1px; margin-bottom: 10px;"></div>
-                    <div style="font-weight: bold;">ผู้เบิก (Requester)</div>
-                    <div style="font-size: 12px; color: #64748b;">ลงชื่อผู้รับผิดชอบ</div>
-                </div>
-                <div style="text-align: center; width: 40%;">
-                    <div style="border-bottom: 1px solid #94a3b8; height: 1px; margin-bottom: 10px;"></div>
-                    <div style="font-weight: bold;">ผู้อนุมัติ (Approver)</div>
-                    <div style="font-size: 12px; color: #64748b;">ลงชื่อหัวหน้าโครงการ</div>
-                </div>
+            <div class="modal-content px-6 py-4">
+                <form id="edit-item-form" onsubmit="submitEditItem(event)" class="space-y-4">
+                    <input type="hidden" name="id" id="edit-id">
+                    <div class="floating-input-group mb-0"><label class="floating-label">ชื่ออุปกรณ์</label><input type="text" name="name" id="edit-name" required class="floating-input" placeholder=" "></div>
+                    <div class="floating-input-group mb-0"><label class="floating-label">หมวดหมู่</label><input type="text" name="category" id="edit-category" list="category-list" required class="floating-input" placeholder=" "></div>
+                    <div class="floating-input-group mb-0"><label class="floating-label">รูปภาพ (URL)</label><input type="url" name="image" id="edit-image" class="floating-input" placeholder=" "></div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="floating-input-group mb-0"><label class="floating-label">ราคา</label><input type="number" name="price" id="edit-price" required class="floating-input" placeholder=" "></div>
+                        <div class="floating-input-group mb-0"><label class="floating-label">จำนวน</label><input type="number" name="quantity" id="edit-quantity" required class="floating-input" placeholder=" "></div>
+                    </div>
+                    <div class="floating-input-group mb-0"><label class="floating-label">รายละเอียด</label><textarea name="details" id="edit-details" rows="3" class="floating-input" placeholder=" "></textarea></div>
+                    <div class="flex gap-2 mt-4">
+                        <button type="button" onclick="closeEditModal()" class="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200">ยกเลิก</button>
+                        <button type="submit" class="flex-1 bg-amber-500 text-white py-3 rounded-xl font-bold hover:bg-amber-600 shadow-lg shadow-amber-200">บันทึก</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 
-    <!-- JAVASCRIPT LOGIC -->
+    <!-- Hidden Print Area -->
+    <div id="print-area"><div style="padding:40px;font-family:'Sarabun',sans-serif;color:#1e293b;"><div style="display:flex;justify-content:space-between;margin-bottom:30px;border-bottom:3px solid #1e293b;padding-bottom:20px;"><div><div style="font-size:28px;font-weight:bold;">ใบเบิกวัสดุ</div><div>Material Requisition Note</div></div><div style="text-align:right;"><div>PROJECT STOCK</div><div>เอกสารภายใน</div></div></div><table style="width:100%;margin-bottom:30px;"><tr><td><strong>โครงการ:</strong> <span id="print-project"></span></td><td style="text-align:right;"><strong>วันที่:</strong> <span id="print-date"></span></td></tr><tr><td><strong>ผู้เบิก:</strong> <span id="print-user"></span></td><td style="text-align:right;"><strong>เลขที่:</strong> <span id="print-ref"></span></td></tr></table><table style="width:100%;border-collapse:collapse;margin-bottom:50px;"><thead><tr style="background-color:#f1f5f9;"><th style="border:1px solid #cbd5e1;padding:12px;">ลำดับ</th><th style="border:1px solid #cbd5e1;padding:12px;">รายการ</th><th style="border:1px solid #cbd5e1;padding:12px;">จำนวน</th></tr></thead><tbody id="print-items-body"></tbody></table><div style="display:flex;justify-content:space-between;margin-top:80px;"><div style="text-align:center;width:40%;"><div style="border-bottom:1px solid #94a3b8;height:1px;margin-bottom:10px;"></div><div>ผู้เบิก</div></div><div style="text-align:center;width:40%;"><div style="border-bottom:1px solid #94a3b8;height:1px;margin-bottom:10px;"></div><div>ผู้อนุมัติ</div></div></div></div></div>
+
     <script>
         const CONFIG = {
             CSV_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSa3BzLpNVCfivB67ZqOVNZPHNF1M-75GMfOLfSWs3A3pIH1MTr5A8TI7mqHS6i-VB10l6caAFHshX0/pub?gid=0&single=true&output=csv',
@@ -696,7 +677,11 @@
                         <td class="p-4"><span class="px-2.5 py-1 bg-slate-100 rounded-md text-xs text-slate-600 font-medium">${item.Category}</span></td>
                         <td class="p-4 text-right font-mono text-slate-600">${parseFloat(item.Price).toLocaleString()}</td>
                         <td class="p-4 text-center"><span class="px-2.5 py-1 rounded-full text-xs font-bold ${statusClass}">${qty}</span></td>
-                        <td class="p-4 text-slate-400 text-xs truncate max-w-[150px]">${item.Details || '-'}</td>
+                        <td class="p-4 text-center">
+                            <button onclick="openEditModal('${item.ID}')" class="text-amber-500 hover:text-amber-700 bg-amber-50 p-2 rounded-lg transition">
+                                <i class="fa-solid fa-pen"></i> แก้ไข
+                            </button>
+                        </td>
                     </tr>`;
 
                 // Mobile
@@ -711,14 +696,93 @@
                             <p class="text-xs text-slate-500 mb-2 mt-1">${item.Category}</p>
                             <div class="flex justify-between items-end mt-2">
                                 <span class="text-sm font-semibold text-indigo-600">฿${parseFloat(item.Price).toLocaleString()}</span>
-                                <span class="text-[10px] text-slate-400 bg-slate-50 px-2 py-1 rounded border border-slate-100 tracking-wide">ID: ${item.ID}</span>
+                                <div class="flex gap-2 items-center">
+                                    <span class="text-[10px] text-slate-400 bg-slate-50 px-2 py-1 rounded border border-slate-100 tracking-wide">ID: ${item.ID}</span>
+                                    <button onclick="openEditModal('${item.ID}')" class="text-xs bg-amber-100 text-amber-700 px-3 py-1.5 rounded-lg font-bold">แก้ไข</button>
+                                </div>
                             </div>
                         </div>
                     </div>`;
             });
         }
 
-        // ================= WITHDRAW & CART =================
+        // --- EDIT FUNCTIONALITY ---
+        function openEditModal(id) {
+            const item = inventoryData.find(i => i.ID === id);
+            if (!item) return;
+
+            document.getElementById('edit-id').value = item.ID;
+            document.getElementById('edit-name').value = item.Name;
+            document.getElementById('edit-category').value = item.Category;
+            document.getElementById('edit-image').value = item.Image;
+            document.getElementById('edit-price').value = item.Price;
+            document.getElementById('edit-quantity').value = item.Quantity;
+            document.getElementById('edit-details').value = item.Details;
+
+            const modal = document.getElementById('edit-modal');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            document.body.classList.add('modal-active');
+            
+            // Animation for modal container
+            modal.querySelector('.modal-container').classList.remove('scale-95');
+            modal.querySelector('.modal-container').classList.add('scale-100');
+        }
+
+        function closeEditModal() {
+            const modal = document.getElementById('edit-modal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            document.body.classList.remove('modal-active');
+            modal.querySelector('.modal-container').classList.remove('scale-100');
+            modal.querySelector('.modal-container').classList.add('scale-95');
+        }
+
+        function submitEditItem(e) {
+            e.preventDefault();
+            const form = new FormData(e.target);
+            const data = Object.fromEntries(form.entries());
+            data.action = 'editItem';
+
+            Swal.fire({ title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading() });
+            
+            // 1. Send to Backend
+            fetch(CONFIG.WEB_APP_URL, { method: 'POST', body: JSON.stringify(data), mode: 'no-cors' })
+            .then(() => {
+                // 2. Optimistic Update (Update local data immediately)
+                const index = inventoryData.findIndex(i => i.ID === data.id);
+                if (index !== -1) {
+                    inventoryData[index] = {
+                        ID: data.id,
+                        Name: data.name,
+                        Category: data.category,
+                        Image: data.image,
+                        Price: data.price,
+                        Quantity: data.quantity,
+                        Details: data.details
+                    };
+                }
+                
+                closeEditModal();
+                processData(); // Re-render UI
+                Swal.fire({icon:'success', title:'แก้ไขเรียบร้อย', timer: 1500, showConfirmButton: false});
+            })
+            .catch(() => Swal.fire('Error', 'การเชื่อมต่อล้มเหลว', 'error'));
+        }
+
+        // --- ADD/WITHDRAW Functions (Existing) ---
+        function submitAddItem(e) {
+            e.preventDefault();
+            const form = new FormData(e.target);
+            const data = Object.fromEntries(form.entries());
+            data.action = 'addItem';
+            Swal.fire({ title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading() });
+            fetch(CONFIG.WEB_APP_URL, { method: 'POST', body: JSON.stringify(data), mode: 'no-cors' }).then(() => {
+                Swal.fire({icon:'success', title:'สำเร็จ', timer: 1500, showConfirmButton: false});
+                e.target.reset();
+                inventoryData.push({ID:'NEW', Name:data.name, Category:data.category, Quantity:data.quantity, Price:data.price, Image:data.image});
+                processData(); navTo('inventory');
+            });
+        }
+
         function renderWithdrawGrid() {
             const grid = document.getElementById('withdraw-grid');
             const search = document.getElementById('withdraw-search').value.toLowerCase();
