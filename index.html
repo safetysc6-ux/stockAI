@@ -17,8 +17,8 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- HTML5-QRCode Scanner -->
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <!-- HTML5-QRCode Scanner (Version 2.3.8 is more stable) -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
@@ -51,7 +51,7 @@
             width: 100%; 
             border: 1px solid #cbd5e1; 
             border-radius: 0.75rem; 
-            padding: 1.25rem 1rem 0.5rem; /* Increased top padding */
+            padding: 1.25rem 1rem 0.5rem;
             outline: none; 
             transition: all 0.2s; 
             background: white;
@@ -67,7 +67,7 @@
             color: #64748b; 
             pointer-events: none; 
             transition: all 0.2s;
-            z-index: 10; /* Added z-index to ensure visibility */
+            z-index: 10;
             font-weight: 600;
         }
         
@@ -88,8 +88,8 @@
         .upload-placeholder { text-align: center; color: #64748b; }
         /* Scanner Styles */
         #scanner-modal { z-index: 60; }
-        #reader { width: 100%; border-radius: 1rem; overflow: hidden; }
-        #reader video { object-fit: cover; border-radius: 1rem; }
+        #reader { width: 100%; border-radius: 1rem; overflow: hidden; background: #000; }
+        #reader video { object-fit: cover; border-radius: 1rem; width: 100% !important; height: 100% !important; }
     </style>
 </head>
 <body class="text-slate-800 h-screen flex flex-col md:flex-row overflow-hidden bg-slate-50">
@@ -259,7 +259,7 @@
                     
                     <div class="file-upload-wrapper h-40" id="edit-image-wrapper">
                         <div class="upload-placeholder"><i class="fa-solid fa-image text-3xl mb-2 text-amber-400"></i><p class="text-sm font-semibold text-slate-600">เปลี่ยนรูปภาพ</p></div>
-                        <img id="edit-preview" class="preview-img">
+                        <img id="edit-preview" class="preview-img" referrerpolicy="no-referrer">
                         <input type="file" id="edit-image-file" name="imageFile" accept="image/*" onchange="previewImage(this, 'edit-preview', 'edit-image-wrapper')">
                         <input type="hidden" id="edit-existing-image" name="image">
                     </div>
@@ -283,10 +283,13 @@
     <!-- SCANNER MODAL -->
     <div id="scanner-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
         <div class="modal-overlay absolute w-full h-full bg-black opacity-90" onclick="stopScanner()"></div>
-        <div class="relative w-11/12 md:max-w-lg z-50">
-            <div id="reader"></div>
-            <button onclick="stopScanner()" class="absolute -bottom-16 left-1/2 transform -translate-x-1/2 bg-white text-red-600 w-12 h-12 rounded-full flex items-center justify-center shadow-lg"><i class="fa-solid fa-times text-xl"></i></button>
-            <div class="text-white text-center mt-4 font-bold text-lg">สแกน QR Code สินค้า</div>
+        <div class="relative w-11/12 md:max-w-lg z-50 bg-black rounded-2xl overflow-hidden shadow-2xl">
+            <!-- Full width/height scanner -->
+            <div id="reader" style="width:100%;"></div>
+            <button onclick="stopScanner()" class="absolute top-4 right-4 bg-white/20 hover:bg-white/40 backdrop-blur text-white w-10 h-10 rounded-full flex items-center justify-center transition"><i class="fa-solid fa-times text-lg"></i></button>
+            <div class="absolute bottom-6 left-0 w-full text-center pointer-events-none">
+                <div class="inline-block bg-black/50 backdrop-blur px-4 py-2 rounded-full text-white text-sm">ส่อง QR Code สินค้า</div>
+            </div>
         </div>
     </div>
 
@@ -305,7 +308,7 @@
         let isMobileCartOpen = false;
         let selectedCategory = 'All';
         let withdrawHistory = JSON.parse(localStorage.getItem('withdrawHistory')) || [];
-        let html5QrcodeScanner = null;
+        let html5QrCode = null; // Changed from html5QrcodeScanner to direct class
 
         document.addEventListener('DOMContentLoaded', () => { loadInventoryData(); navTo('dashboard'); renderHistory(); });
 
@@ -411,7 +414,7 @@
                 // Desktop
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-50 transition border-b border-slate-50">
-                        <td class="p-4 flex items-center gap-3"><img src="${img}" class="w-10 h-10 rounded-lg bg-slate-200 object-cover"><span class="font-medium">${item.Name}</span></td>
+                        <td class="p-4 flex items-center gap-3"><img src="${img}" class="w-10 h-10 rounded-lg bg-slate-200 object-cover" referrerpolicy="no-referrer"><span class="font-medium">${item.Name}</span></td>
                         <td class="p-4"><span class="px-2 py-1 bg-slate-100 rounded text-xs">${item.Category}</span></td>
                         <td class="p-4 text-right font-mono">${parseFloat(item.Price).toLocaleString()}</td>
                         <td class="p-4 text-center"><span class="px-2 py-1 rounded-full text-xs font-bold ${status}">${qty}</span></td>
@@ -424,7 +427,7 @@
                 // Mobile
                 mobileList.innerHTML += `
                     <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex gap-4">
-                        <img src="${img}" class="w-16 h-16 rounded-xl bg-slate-50 object-cover flex-shrink-0">
+                        <img src="${img}" class="w-16 h-16 rounded-xl bg-slate-50 object-cover flex-shrink-0" referrerpolicy="no-referrer">
                         <div class="flex-1 min-w-0">
                             <div class="flex justify-between items-start"><h4 class="font-bold truncate pr-2 text-sm">${item.Name}</h4><span class="px-2 py-0.5 rounded-md text-[10px] ${status}">${qty}</span></div>
                             <p class="text-xs text-slate-500 mb-2 mt-1">${item.Category}</p>
@@ -442,189 +445,88 @@
 
         // --- QR CODE FUNCTIONS ---
         function viewQRCode(id, name) {
-            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}`;
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${id}`; // High Res for Download
             
-            // Show preview first
-            Swal.fire({
-                title: 'QR Code สำหรับปริ้น',
-                html: `
-                    <div style="display:flex; border:1px solid #ccc; width:288px; height:96px; margin:0 auto; align-items:center; padding:5px; text-align:left; overflow:hidden;">
-                        <img src="${qrUrl}" style="width:80px; height:80px;">
-                        <div style="margin-left:10px; font-family:'Sarabun';">
-                            <div style="font-weight:bold; font-size:14px; line-height:1.2; max-height:60px; overflow:hidden;">${name}</div>
-                            <div style="font-size:10px; color:#666;">${id}</div>
+            // สร้าง Layout สติกเกอร์จำลองสำหรับ Preview
+            const stickerHtml = `
+                <div class="flex flex-col items-center justify-center space-y-3">
+                    <div style="display:flex; border:1px solid #ddd; width:288px; height:134px; margin:0 auto; align-items:center; padding:5px; text-align:left;">
+                        <img src="${qrUrl}" style="width:100px; height:100px;">
+                        <div style="margin-left:15px; font-family:'Sarabun';">
+                            <div style="font-weight:bold; font-size:16px; line-height:1.2; max-height:80px; overflow:hidden;">${name}</div>
+                            <div style="font-size:12px; color:#666;">${id}</div>
                         </div>
                     </div>
-                    <p class="text-xs text-gray-500 mt-2">ขนาด: 24mm x 72mm (Brother Optimized)</p>
-                    <div class="text-left text-xs text-red-500 mt-2 bg-red-50 p-2 rounded">
-                        <b>สำหรับ Brother P900W:</b><br>
-                        1. ตั้งค่า Margins เป็น <b>"None"</b><br>
-                        2. ตรวจสอบว่าใส่กระดาษขนาด 24mm (0.94")<br>
-                        3. หากใช้เทปต่อเนื่อง ให้สร้าง Custom Size: 72mm x 24mm ใน Driver
+                    <div class="text-xs text-slate-400">
+                        <i class="fa-solid fa-info-circle"></i> กดปุ่มด้านล่างเพื่อบันทึกไฟล์รูปภาพ
                     </div>
-                `,
+                </div>
+            `;
+
+            Swal.fire({
+                title: 'QR Code สินค้า',
+                html: stickerHtml,
                 showCancelButton: true,
-                confirmButtonText: '<i class="fa-solid fa-print"></i> เปิดหน้าต่างสั่งปริ้น',
+                confirmButtonText: '<i class="fa-solid fa-download"></i> ดาวน์โหลดรูปภาพ',
                 confirmButtonColor: '#4f46e5',
-                cancelButtonText: 'ปิด'
-            }).then((result) => {
+                cancelButtonText: 'ปิด',
+                customClass: {
+                    popup: 'rounded-2xl'
+                }
+            }).then(async (result) => {
                 if (result.isConfirmed) {
-                    const printWindow = window.open('', '_blank', 'width=800,height=600');
-                    
-                    if (!printWindow) {
-                        Swal.fire('แจ้งเตือน', 'Pop-up ถูกบล็อก! กรุณาอนุญาต Pop-up', 'error');
-                        return;
+                    try {
+                        Swal.fire({
+                            title: 'กำลังดาวน์โหลด...',
+                            didOpen: () => Swal.showLoading(),
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+
+                        // Fetch image as blob
+                        const response = await fetch(qrUrl);
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        
+                        // Create temporary link to download
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `QR_${id}_${name.substring(0, 10)}.png`; // File name
+                        document.body.appendChild(a);
+                        a.click();
+                        
+                        // Cleanup
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                        
+                    } catch (e) {
+                        // Fallback if fetch fails (CORS issues)
+                        console.error(e);
+                        window.open(qrUrl, '_blank');
                     }
-
-                    const content = `
-                        <html>
-                        <head>
-                            <title>Print Label - ${name}</title>
-                            <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
-                            <style>
-                                /* บังคับขนาดหน้ากระดาษและลบขอบอัตโนมัติ */
-                                @page { 
-                                    size: 72mm 24mm; 
-                                    margin: 0mm; /* สำคัญมากสำหรับ Brother */
-                                }
-                                
-                                body { 
-                                    margin: 0; 
-                                    padding: 0; 
-                                    font-family: 'Sarabun', sans-serif; 
-                                    background: #fff;
-                                    width: 72mm;
-                                    height: 24mm;
-                                    display: flex;
-                                    justify-content: center; /* จัดกึ่งกลางแนวนอน */
-                                    align-items: center;     /* จัดกึ่งกลางแนวตั้ง */
-                                    overflow: hidden;
-                                }
-                                
-                                .sticker {
-                                    width: 68mm; /* ลดขนาดลงเล็กน้อย (Safe Zone) เพื่อไม่ให้ชนขอบ Hardware Margin */
-                                    height: 20mm; 
-                                    display: flex;
-                                    align-items: center;
-                                    /* border: 1px dashed #ccc; เส้นประสำหรับ test layout (จะซ่อนตอนปริ้น) */
-                                }
-                                
-                                .qr-box {
-                                    width: 18mm;
-                                    height: 18mm;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    flex-shrink: 0;
-                                    margin-right: 2mm;
-                                }
-                                
-                                .qr-box img {
-                                    width: 100%;
-                                    height: 100%;
-                                    object-fit: contain;
-                                    image-rendering: pixelated; /* ให้ QR คมชัด */
-                                }
-                                
-                                .info-box {
-                                    flex: 1;
-                                    display: flex;
-                                    flex-direction: column;
-                                    justify-content: center;
-                                    overflow: hidden;
-                                    height: 100%;
-                                }
-                                
-                                .name {
-                                    font-size: 11pt; /* ขนาดตัวอักษร */
-                                    font-weight: bold;
-                                    line-height: 1.1;
-                                    max-height: 14mm;
-                                    overflow: hidden;
-                                    word-break: break-word;
-                                    white-space: normal;
-                                }
-                                
-                                .id {
-                                    font-size: 8pt;
-                                    margin-top: 1mm;
-                                    color: #000;
-                                    font-family: monospace;
-                                }
-
-                                /* ซ่อนปุ่มเมื่อสั่งปริ้น */
-                                @media print {
-                                    .no-print { display: none !important; }
-                                    .sticker { border: none !important; } /* ซ่อนเส้นขอบตอนปริ้นจริง */
-                                    body { -webkit-print-color-adjust: exact; }
-                                }
-
-                                .no-print-container {
-                                    position: fixed; bottom: 10px; width: 100%; text-align: center; 
-                                    background: rgba(255,255,255,0.95); padding: 15px; border-top: 1px solid #ddd;
-                                    left: 0;
-                                }
-                                .btn {
-                                    background: #4f46e5; color: white; padding: 10px 20px; border: none; 
-                                    border-radius: 8px; cursor: pointer; font-size: 14px; margin: 0 5px; font-weight: bold;
-                                }
-                            </style>
-                        </head>
-                        <body>
-                            <div class="sticker">
-                                <div class="qr-box">
-                                    <img src="${qrUrl}" id="qrImg" />
-                                </div>
-                                <div class="info-box">
-                                    <div class="name">${name}</div>
-                                    <div class="id">${id}</div>
-                                </div>
-                            </div>
-                            
-                            <div class="no-print no-print-container">
-                                <div style="margin-bottom:10px; color:#ef4444; font-weight:bold; font-size:14px;">
-                                    ⚠️ ตั้งค่า Margins เป็น "None" และเลือกขนาดกระดาษให้ตรง (72x24mm)
-                                </div>
-                                <button class="btn" onclick="window.print()">🖨️ สั่งปริ้น</button>
-                                <button class="btn" onclick="window.close()" style="background:#64748b;">ปิด</button>
-                            </div>
-
-                            <script>
-                                const img = document.getElementById('qrImg');
-                                
-                                function doPrint() {
-                                    setTimeout(() => {
-                                        window.focus();
-                                        window.print();
-                                    }, 800);
-                                }
-
-                                if (img.complete) {
-                                    doPrint();
-                                } else {
-                                    img.onload = doPrint;
-                                    img.onerror = () => alert('โหลด QR Code ไม่สำเร็จ กรุณาลองใหม่');
-                                }
-                            <\/script>
-                        </body>
-                        </html>
-                    `;
-                    
-                    printWindow.document.write(content);
-                    printWindow.document.close();
                 }
             });
         }
 
+        // --- ONE-CLICK SCANNER FUNCTION ---
         function startScanner() {
             const modal = document.getElementById('scanner-modal');
             modal.classList.remove('opacity-0', 'pointer-events-none');
             document.body.classList.add('modal-active');
 
-            if(!html5QrcodeScanner) {
-                html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
-                html5QrcodeScanner.render(onScanSuccess);
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
             }
+
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            
+            // Start scanning with environment camera (back camera) immediately
+            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess)
+            .catch(err => {
+                console.error("Error starting scanner", err);
+                Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง', 'error');
+                stopScanner();
+            });
         }
 
         function stopScanner() {
@@ -632,11 +534,14 @@
             modal.classList.add('opacity-0', 'pointer-events-none');
             document.body.classList.remove('modal-active');
             
-            if(html5QrcodeScanner) {
-                html5QrcodeScanner.clear().then(() => {
-                    html5QrcodeScanner = null;
-                    document.getElementById('reader').innerHTML = '';
-                }).catch(error => { console.error("Failed to clear scanner", error); });
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    // Stop success
+                    // html5QrCode.clear(); // remove from DOM if needed, but we reuse the div
+                }).catch(err => {
+                    // Stop failed, handle it.
+                    console.log("Failed to stop scanner", err);
+                });
             }
         }
 
@@ -680,7 +585,7 @@
             const grid = document.getElementById('withdraw-grid'); const search = document.getElementById('withdraw-search').value.toLowerCase(); const empty = document.getElementById('withdraw-empty');
             grid.innerHTML = ''; const filtered = inventoryData.filter(item => item.Name.toLowerCase().includes(search) && parseInt(item.Quantity) > 0);
             if(filtered.length === 0) { empty.classList.remove('hidden'); empty.classList.add('flex'); } else { empty.classList.add('hidden'); empty.classList.remove('flex'); }
-            filtered.forEach(item => { const img = item.Image && item.Image.startsWith('http') ? item.Image : `https://placehold.co/150?text=Item`; grid.innerHTML += `<div onclick='addToCart(${JSON.stringify(item)})' class="bg-white rounded-xl shadow-sm border border-slate-100 p-3 cursor-pointer hover:shadow-md transition active:scale-95 group relative overflow-hidden h-full flex flex-col"><div class="absolute top-2 right-2 bg-slate-900/80 text-white text-[10px] px-2 py-1 rounded-md z-10">เหลือ ${item.Quantity}</div><div class="w-full aspect-square bg-slate-50 rounded-lg mb-3 overflow-hidden"><img src="${img}" class="w-full h-full object-cover"></div><h4 class="text-sm font-bold truncate">${item.Name}</h4><p class="text-[10px] text-slate-400 mb-2">${item.Category}</p><button class="w-full text-xs py-2 rounded-lg bg-indigo-50 text-indigo-600 font-bold group-hover:bg-indigo-600 group-hover:text-white transition">เพิ่ม</button></div>`; });
+            filtered.forEach(item => { const img = item.Image && item.Image.startsWith('http') ? item.Image : `https://placehold.co/150?text=Item`; grid.innerHTML += `<div onclick='addToCart(${JSON.stringify(item)})' class="bg-white rounded-xl shadow-sm border border-slate-100 p-3 cursor-pointer hover:shadow-md transition active:scale-95 group relative overflow-hidden h-full flex flex-col"><div class="absolute top-2 right-2 bg-slate-900/80 text-white text-[10px] px-2 py-1 rounded-md z-10">เหลือ ${item.Quantity}</div><div class="w-full aspect-square bg-slate-50 rounded-lg mb-3 overflow-hidden"><img src="${img}" class="w-full h-full object-cover" referrerpolicy="no-referrer"></div><h4 class="text-sm font-bold truncate">${item.Name}</h4><p class="text-[10px] text-slate-400 mb-2">${item.Category}</p><button class="w-full text-xs py-2 rounded-lg bg-indigo-50 text-indigo-600 font-bold group-hover:bg-indigo-600 group-hover:text-white transition">เพิ่ม</button></div>`; });
         }
         function addToCart(itemObj) {
             const item = typeof itemObj === 'string' ? JSON.parse(itemObj) : itemObj; const existing = cart.find(c => c.id === item.ID);
