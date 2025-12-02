@@ -350,13 +350,19 @@
         let categories = new Set();
         let isMobileCartOpen = false;
         let selectedCategory = 'All';
-        let withdrawHistory = JSON.parse(localStorage.getItem('withdrawHistory')) || [];
+        let withdrawHistory = [];
+        try {
+            withdrawHistory = JSON.parse(localStorage.getItem('withdrawHistory')) || [];
+        } catch(e) {
+            console.warn("LocalStorage error:", e);
+            withdrawHistory = [];
+        }
         let html5QrCode = null;
         
         // Signature Vars
         let signaturePad, signatureCtx;
         let isDrawing = false;
-        let resizeSignaturePad; // Global variable to hold resize function
+        let resizeSignaturePad;
 
         document.addEventListener('DOMContentLoaded', () => { 
             loadInventoryData(); 
@@ -388,7 +394,6 @@
             if(isMobileCartOpen) { 
                 panel.classList.add('open'); 
                 backdrop.classList.add('open'); 
-                // Resize canvas when drawer opens to ensure correct dimensions
                 setTimeout(() => {
                     if(typeof resizeSignaturePad === 'function') resizeSignaturePad();
                 }, 300); 
@@ -419,10 +424,10 @@
             const canvas = document.getElementById('signature-pad');
             signatureCtx = canvas.getContext('2d');
             
-            // Define resize function
             resizeSignaturePad = function() {
                 const rect = canvas.getBoundingClientRect();
                 if (rect.width > 0 && rect.height > 0) {
+                    // Save content if needed, but clearing is standard on resize
                     canvas.width = rect.width;
                     canvas.height = rect.height;
                 }
@@ -431,7 +436,6 @@
             window.addEventListener('resize', resizeSignaturePad);
             setTimeout(resizeSignaturePad, 500);
 
-            // Drawing Events
             const startDrawing = (e) => {
                 isDrawing = true;
                 signatureCtx.beginPath();
@@ -454,7 +458,6 @@
             canvas.addEventListener('mouseup', stopDrawing);
             canvas.addEventListener('mouseout', stopDrawing);
             
-            // Touch Support
             canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDrawing(e); });
             canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); });
             canvas.addEventListener('touchend', (e) => { e.preventDefault(); stopDrawing(); });
@@ -480,7 +483,6 @@
 
         function getSignatureImage() {
             const canvas = document.getElementById('signature-pad');
-            // Check if empty
             const blank = document.createElement('canvas');
             blank.width = canvas.width; blank.height = canvas.height;
             if (canvas.toDataURL() === blank.toDataURL()) return null;
@@ -493,16 +495,12 @@
             document.getElementById('app-content').classList.add('hidden');
             
             try {
-                // Fetch from Web App URL with action=getInventory
                 const response = await fetch(CONFIG.WEB_APP_URL + '?action=getInventory');
                 const data = await response.json();
-                
-                // Filter valid items (ensure ID and Name exist)
                 inventoryData = data.filter(item => item.Name && item.ID);
                 finishLoading();
             } catch (error) {
                 console.error("Error loading inventory:", error);
-                
                 if (CONFIG.WEB_APP_URL.includes('YOUR_GOOGLE')) {
                      inventoryData = [{ID:'101', Name:'สว่านไร้สาย Bosch', Category:'เครื่องมือช่าง', Type:'withdrawable', Image:'https://placehold.co/200', Price:2500, Quantity:12, Details:'18V'}];
                      finishLoading();
@@ -541,15 +539,11 @@
             renderInventory();
         }
 
-        // --- GOOGLE DRIVE IMAGE LINK CONVERTER ---
         function formatDriveImage(url) {
             if (!url) return 'https://placehold.co/100?text=No+Img';
-            if (url.startsWith('data:') || url.startsWith('blob:')) return url; // Base64 or Blob
-            
-            // Try to extract ID from common Google Drive URL patterns
+            if (url.startsWith('data:') || url.startsWith('blob:')) return url; 
             const match = url.match(/[-\w]{25,}/);
             if (match && (url.includes('drive.google.com') || url.includes('docs.google.com'))) {
-                // Use a direct serving link that bypasses preview pages
                 return `https://lh3.googleusercontent.com/d/${match[0]}`;
             }
             return url;
@@ -569,10 +563,7 @@
                 const img = formatDriveImage(item.Image);
                 const qty = parseInt(item.Quantity);
                 const status = qty < 5 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700';
-                
-                const typeLabel = (item.Type === 'asset') ? 
-                    '<span class="bg-gray-200 text-gray-700 px-2 py-0.5 rounded text-xs">เบิกไม่ได้</span>' : 
-                    '<span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs">เบิกได้</span>';
+                const typeLabel = (item.Type === 'asset') ? '<span class="bg-gray-200 text-gray-700 px-2 py-0.5 rounded text-xs">เบิกไม่ได้</span>' : '<span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs">เบิกได้</span>';
 
                 // Desktop
                 tbody.innerHTML += `
@@ -594,14 +585,8 @@
                     <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex gap-4">
                         <img src="${img}" class="w-16 h-16 rounded-xl bg-slate-50 object-cover flex-shrink-0" referrerpolicy="no-referrer">
                         <div class="flex-1 min-w-0">
-                            <div class="flex justify-between items-start">
-                                <h4 class="font-bold truncate pr-2 text-sm">${item.Name}</h4>
-                                <span class="px-2 py-0.5 rounded-md text-[10px] ${status}">${qty}</span>
-                            </div>
-                            <div class="flex items-center gap-2 mt-1">
-                                <span class="text-xs text-slate-500">${item.Category}</span>
-                                ${typeLabel}
-                            </div>
+                            <div class="flex justify-between items-start"><h4 class="font-bold truncate pr-2 text-sm">${item.Name}</h4><span class="px-2 py-0.5 rounded-md text-[10px] ${status}">${qty}</span></div>
+                            <div class="flex items-center gap-2 mt-1"><span class="text-xs text-slate-500">${item.Category}</span>${typeLabel}</div>
                             <div class="flex justify-between items-center mt-2">
                                 <span class="text-sm font-semibold text-indigo-600">฿${parseFloat(item.Price).toLocaleString()}</span>
                                 <div class="flex gap-2 items-center">
@@ -615,7 +600,6 @@
             });
         }
 
-        // --- DELETE ITEM ---
         function deleteItem(id) {
             Swal.fire({
                 title: 'ยืนยันการลบ?',
@@ -628,28 +612,18 @@
             }).then((result) => {
                 if (result.isConfirmed) {
                     Swal.fire({title: 'กำลังลบ...', didOpen: () => Swal.showLoading()});
-                    
-                    fetch(CONFIG.WEB_APP_URL, {
-                        method: 'POST', 
-                        body: JSON.stringify({action: 'deleteItem', id: id}), 
-                        mode: 'no-cors'
-                    }).then(() => {
-                        // Remove locally
+                    fetch(CONFIG.WEB_APP_URL, { method: 'POST', body: JSON.stringify({action: 'deleteItem', id: id}), mode: 'no-cors' })
+                    .then(() => {
                         inventoryData = inventoryData.filter(item => item.ID !== id);
                         processData();
                         Swal.fire('ลบสำเร็จ!', 'สินค้าถูกลบออกจากระบบแล้ว', 'success');
-                    }).catch(() => {
-                        Swal.fire('Error', 'เกิดข้อผิดพลาดในการลบ', 'error');
-                    });
+                    }).catch(() => { Swal.fire('Error', 'เกิดข้อผิดพลาดในการลบ', 'error'); });
                 }
             });
         }
 
-        // --- QR CODE FUNCTIONS ---
         function viewQRCode(id, name) {
-            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${id}`; // High Res for Download
-            
-            // สร้าง Layout สติกเกอร์จำลองสำหรับ Preview
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${id}`;
             const stickerHtml = `
                 <div class="flex flex-col items-center justify-center space-y-3">
                     <div style="display:flex; border:1px solid #ddd; width:288px; height:134px; margin:0 auto; align-items:center; padding:5px; text-align:left;">
@@ -659,121 +633,43 @@
                             <div style="font-size:12px; color:#666;">${id}</div>
                         </div>
                     </div>
-                    <div class="text-xs text-slate-400">
-                        <i class="fa-solid fa-info-circle"></i> กดปุ่มด้านล่างเพื่อบันทึกไฟล์รูปภาพ
-                    </div>
-                </div>
-            `;
-
-            Swal.fire({
-                title: 'QR Code สินค้า',
-                html: stickerHtml,
-                showCancelButton: true,
-                confirmButtonText: '<i class="fa-solid fa-download"></i> ดาวน์โหลดรูปภาพ',
-                confirmButtonColor: '#4f46e5',
-                cancelButtonText: 'ปิด',
-                customClass: {
-                    popup: 'rounded-2xl'
-                }
-            }).then(async (result) => {
+                    <div class="text-xs text-slate-400"><i class="fa-solid fa-info-circle"></i> กดปุ่มด้านล่างเพื่อบันทึกไฟล์รูปภาพ</div>
+                </div>`;
+            Swal.fire({ title: 'QR Code สินค้า', html: stickerHtml, showCancelButton: true, confirmButtonText: '<i class="fa-solid fa-download"></i> ดาวน์โหลดรูปภาพ', confirmButtonColor: '#4f46e5', cancelButtonText: 'ปิด', customClass: { popup: 'rounded-2xl' } }).then(async (result) => {
                 if (result.isConfirmed) {
                     try {
-                        Swal.fire({
-                            title: 'กำลังดาวน์โหลด...',
-                            didOpen: () => Swal.showLoading(),
-                            timer: 2000,
-                            showConfirmButton: false
-                        });
-
-                        // Fetch image as blob
-                        const response = await fetch(qrUrl);
-                        const blob = await response.blob();
-                        const url = window.URL.createObjectURL(blob);
-                        
-                        // Create temporary link to download
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `QR_${id}_${name.substring(0, 10)}.png`; // File name
-                        document.body.appendChild(a);
-                        a.click();
-                        
-                        // Cleanup
-                        window.URL.revokeObjectURL(url);
-                        document.body.removeChild(a);
-                        
-                    } catch (e) {
-                        // Fallback if fetch fails (CORS issues)
-                        console.error(e);
-                        window.open(qrUrl, '_blank');
-                    }
+                        Swal.fire({ title: 'กำลังดาวน์โหลด...', didOpen: () => Swal.showLoading(), timer: 2000, showConfirmButton: false });
+                        const response = await fetch(qrUrl); const blob = await response.blob(); const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a'); a.href = url; a.download = `QR_${id}_${name.substring(0, 10)}.png`; document.body.appendChild(a); a.click();
+                        window.URL.revokeObjectURL(url); document.body.removeChild(a);
+                    } catch (e) { console.error(e); window.open(qrUrl, '_blank'); }
                 }
             });
         }
 
-        // --- ONE-CLICK SCANNER FUNCTION ---
         function startScanner() {
-            const modal = document.getElementById('scanner-modal');
-            modal.classList.remove('opacity-0', 'pointer-events-none');
-            document.body.classList.add('modal-active');
-
-            if (!html5QrCode) {
-                html5QrCode = new Html5Qrcode("reader");
-            }
-
+            const modal = document.getElementById('scanner-modal'); modal.classList.remove('opacity-0', 'pointer-events-none'); document.body.classList.add('modal-active');
+            if (!html5QrCode) { html5QrCode = new Html5Qrcode("reader"); }
             const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-            
-            // Start scanning with environment camera (back camera) immediately
-            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess)
-            .catch(err => {
-                console.error("Error starting scanner", err);
-                Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง', 'error');
-                stopScanner();
-            });
+            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess).catch(err => { console.error("Error starting scanner", err); Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง', 'error'); stopScanner(); });
         }
 
         function stopScanner() {
-            const modal = document.getElementById('scanner-modal');
-            modal.classList.add('opacity-0', 'pointer-events-none');
-            document.body.classList.remove('modal-active');
-            
-            if (html5QrCode) {
-                html5QrCode.stop().then(() => {
-                    // Stop success
-                }).catch(err => {
-                    console.log("Failed to stop scanner", err);
-                });
-            }
+            const modal = document.getElementById('scanner-modal'); modal.classList.add('opacity-0', 'pointer-events-none'); document.body.classList.remove('modal-active');
+            if (html5QrCode) { html5QrCode.stop().catch(err => { console.log("Failed to stop scanner", err); }); }
         }
 
         function onScanSuccess(decodedText, decodedResult) {
-            stopScanner(); // Stop scanning once found
-            const item = inventoryData.find(i => i.ID == decodedText);
-            if (item) {
-                addToCart(item);
-                // No need for alert here as addToCart shows toast
-            } else {
-                Swal.fire('ไม่พบสินค้า', `ไม่พบรหัสสินค้า: ${decodedText} ในระบบ`, 'error');
-            }
+            stopScanner(); const item = inventoryData.find(i => i.ID == decodedText);
+            if (item) { addToCart(item); } else { Swal.fire('ไม่พบสินค้า', `ไม่พบรหัสสินค้า: ${decodedText} ในระบบ`, 'error'); }
         }
 
-        // --- EDIT FUNCTIONALITY ---
         function openEditModal(id) {
             const item = inventoryData.find(i => i.ID === id); if (!item) return;
-            document.getElementById('edit-id').value = item.ID; document.getElementById('edit-name').value = item.Name; document.getElementById('edit-category').value = item.Category; document.getElementById('edit-existing-image').value = item.Image; document.getElementById('edit-price').value = item.Price; document.getElementById('edit-quantity').value = item.Quantity; document.getElementById('edit-details').value = item.Details;
-            document.getElementById('edit-type').value = item.Type || 'withdrawable';
-            
+            document.getElementById('edit-id').value = item.ID; document.getElementById('edit-name').value = item.Name; document.getElementById('edit-category').value = item.Category; document.getElementById('edit-existing-image').value = item.Image; document.getElementById('edit-price').value = item.Price; document.getElementById('edit-quantity').value = item.Quantity; document.getElementById('edit-details').value = item.Details; document.getElementById('edit-type').value = item.Type || 'withdrawable';
             document.getElementById('edit-image-file').value = ''; const preview = document.getElementById('edit-preview'); const placeholder = document.getElementById('edit-image-wrapper').querySelector('.upload-placeholder');
-            
             const displayImg = formatDriveImage(item.Image);
-            if (displayImg && !displayImg.includes('placehold')) { 
-                preview.src = displayImg; 
-                preview.style.display = 'block'; 
-                placeholder.style.display = 'none'; 
-            } else { 
-                preview.style.display = 'none'; 
-                placeholder.style.display = 'block'; 
-            }
-            
+            if (displayImg && !displayImg.includes('placehold')) { preview.src = displayImg; preview.style.display = 'block'; placeholder.style.display = 'none'; } else { preview.style.display = 'none'; placeholder.style.display = 'block'; }
             const modal = document.getElementById('edit-modal'); modal.classList.remove('opacity-0', 'pointer-events-none'); document.body.classList.add('modal-active'); modal.querySelector('.modal-container').classList.remove('scale-95'); modal.querySelector('.modal-container').classList.add('scale-100');
         }
         function closeEditModal() { const modal = document.getElementById('edit-modal'); modal.classList.add('opacity-0', 'pointer-events-none'); document.body.classList.remove('modal-active'); modal.querySelector('.modal-container').classList.remove('scale-100'); modal.querySelector('.modal-container').classList.add('scale-95'); }
@@ -784,7 +680,6 @@
             fetch(CONFIG.WEB_APP_URL, { method: 'POST', body: JSON.stringify(data), mode: 'no-cors' }).then(() => { const index = inventoryData.findIndex(i => i.ID === data.id); if (index !== -1) { inventoryData[index] = { ...inventoryData[index], Name: data.name, Category: data.category, Type: data.type, Price: data.price, Quantity: data.quantity, Details: data.details }; } closeEditModal(); Swal.fire({icon:'success', title:'แก้ไขเรียบร้อย', timer: 1500, showConfirmButton: false}); setTimeout(() => { loadInventoryData(); }, 2000); }).catch(() => Swal.fire('Error', 'การเชื่อมต่อล้มเหลว', 'error'));
         }
 
-        // --- ADD Functions ---
         async function submitAddItem(e) {
             e.preventDefault(); const form = new FormData(e.target); const data = Object.fromEntries(form.entries()); data.action = 'addItem';
             const fileInput = document.getElementById('add-image-file'); if (fileInput.files.length > 0) { const file = fileInput.files[0]; data.imageFile = { type: file.type, base64: await toBase64(file) }; }
@@ -792,7 +687,6 @@
             fetch(CONFIG.WEB_APP_URL, { method: 'POST', body: JSON.stringify(data), mode: 'no-cors' }).then(() => { Swal.fire({icon:'success', title:'สำเร็จ', timer: 1500, showConfirmButton: false}); e.target.reset(); document.getElementById('add-preview').style.display='none'; document.getElementById('add-image-wrapper').querySelector('.upload-placeholder').style.display='block'; setTimeout(() => { loadInventoryData(); navTo('inventory'); }, 2000); });
         }
 
-        // --- WITHDRAW & CART ---
         function renderWithdrawGrid() {
             const grid = document.getElementById('withdraw-grid'); const search = document.getElementById('withdraw-search').value.toLowerCase(); const empty = document.getElementById('withdraw-empty');
             grid.innerHTML = ''; const filtered = inventoryData.filter(item => item.Name.toLowerCase().includes(search) && parseInt(item.Quantity) > 0);
@@ -805,17 +699,7 @@
                 const clickAction = isAsset ? '' : `onclick='addToCart(${JSON.stringify(item)})'`;
                 const badge = isAsset ? '<div class="absolute top-2 left-2 bg-gray-800/80 text-white text-[10px] px-2 py-1 rounded-md z-10">Asset</div>' : '';
 
-                grid.innerHTML += `
-                <div ${clickAction} class="bg-white rounded-xl shadow-sm border border-slate-100 p-3 cursor-pointer hover:shadow-md transition active:scale-95 group relative overflow-hidden h-full flex flex-col">
-                    ${badge}
-                    <div class="absolute top-2 right-2 bg-slate-900/80 text-white text-[10px] px-2 py-1 rounded-md z-10">เหลือ ${item.Quantity}</div>
-                    <div class="w-full aspect-square bg-slate-50 rounded-lg mb-3 overflow-hidden"><img src="${img}" class="w-full h-full object-cover" referrerpolicy="no-referrer"></div>
-                    <h4 class="text-sm font-bold truncate">${item.Name}</h4>
-                    <p class="text-[10px] text-slate-400 mb-2">${item.Category}</p>
-                    <button class="w-full text-xs py-2 rounded-lg transition flex items-center justify-center gap-1 ${buttonClass}">
-                        ${buttonText}
-                    </button>
-                </div>`; 
+                grid.innerHTML += `<div ${clickAction} class="bg-white rounded-xl shadow-sm border border-slate-100 p-3 cursor-pointer hover:shadow-md transition active:scale-95 group relative overflow-hidden h-full flex flex-col">${badge}<div class="absolute top-2 right-2 bg-slate-900/80 text-white text-[10px] px-2 py-1 rounded-md z-10">เหลือ ${item.Quantity}</div><div class="w-full aspect-square bg-slate-50 rounded-lg mb-3 overflow-hidden"><img src="${img}" class="w-full h-full object-cover" referrerpolicy="no-referrer"></div><h4 class="text-sm font-bold truncate">${item.Name}</h4><p class="text-[10px] text-slate-400 mb-2">${item.Category}</p><button class="w-full text-xs py-2 rounded-lg transition flex items-center justify-center gap-1 ${buttonClass}">${buttonText}</button></div>`; 
             });
         }
         function addToCart(itemObj) {
@@ -832,140 +716,84 @@
         }
         
         function downloadPDFHistory(index) {
-            const h = withdrawHistory[index];
-            if (!h) return;
+            const h = withdrawHistory[index]; if (!h) return;
             generatePDF(h.project, h.user, h.items, h.id, h.date, h.signature);
         }
 
         async function confirmWithdraw() {
-            const project = document.getElementById('project-name').value, user = document.getElementById('withdrawer-name').value;
-            if(cart.length === 0 || !project || !user) return Swal.fire({icon:'warning', title:'ข้อมูลไม่ครบ'});
-            
-            // Get Signature
-            const signature = getSignatureImage();
-            if(!signature) return Swal.fire({icon:'warning', title:'กรุณาเซ็นชื่อ', text: 'โปรดเซ็นชื่อในช่องลายเซ็นก่อนยืนยัน'});
+            try {
+                const project = document.getElementById('project-name').value, user = document.getElementById('withdrawer-name').value;
+                if(cart.length === 0 || !project || !user) return Swal.fire({icon:'warning', title:'ข้อมูลไม่ครบ'});
+                
+                const signature = getSignatureImage();
+                if(!signature) return Swal.fire({icon:'warning', title:'กรุณาเซ็นชื่อ', text: 'โปรดเซ็นชื่อในช่องลายเซ็นก่อนยืนยัน'});
 
-            const res = await Swal.fire({title:'ยืนยันการเบิก?', text:`โครงการ: ${project}`, icon:'question', showCancelButton:true, confirmButtonColor:'#4f46e5', confirmButtonText:'ยืนยัน'});
-            
-            if(res.isConfirmed) {
-                cart.forEach(cartItem => {
-                    const idx = inventoryData.findIndex(i => i.ID === cartItem.id);
-                    if(idx !== -1) {
-                        let currentQty = parseInt(inventoryData[idx].Quantity);
-                        inventoryData[idx].Quantity = Math.max(0, currentQty - cartItem.qty);
+                const res = await Swal.fire({title:'ยืนยันการเบิก?', text:`โครงการ: ${project}`, icon:'question', showCancelButton:true, confirmButtonColor:'#4f46e5', confirmButtonText:'ยืนยัน'});
+                
+                if(res.isConfirmed) {
+                    // Update Local Stock
+                    cart.forEach(cartItem => {
+                        const idx = inventoryData.findIndex(i => i.ID === cartItem.id);
+                        if(idx !== -1) {
+                            let currentQty = parseInt(inventoryData[idx].Quantity);
+                            inventoryData[idx].Quantity = Math.max(0, currentQty - cartItem.qty);
+                        }
+                    });
+                    processData();
+
+                    Swal.fire({title:'กำลังบันทึก...', didOpen:()=>Swal.showLoading()});
+                    
+                    const record = { date: new Date().toLocaleString(), project, user, items: [...cart], id: 'TX-'+Date.now().toString().slice(-6), signature: signature }; 
+                    
+                    // Safe LocalStorage Save
+                    try {
+                        withdrawHistory.unshift(record); 
+                        localStorage.setItem('withdrawHistory', JSON.stringify(withdrawHistory));
+                    } catch(e) {
+                        console.warn("LocalStorage full, clearing old history");
+                        withdrawHistory = [record]; // Keep only latest if full
+                        localStorage.setItem('withdrawHistory', JSON.stringify(withdrawHistory));
                     }
-                });
-                processData();
+                    renderHistory();
 
-                Swal.fire({title:'กำลังบันทึก...', didOpen:()=>Swal.showLoading()});
-                
-                // Save history record including signature
-                const record = { date: new Date().toLocaleString(), project, user, items: [...cart], id: 'TX-'+Date.now().toString().slice(-6), signature: signature }; 
-                withdrawHistory.unshift(record); 
-                localStorage.setItem('withdrawHistory', JSON.stringify(withdrawHistory)); 
-                renderHistory();
-
-                fetch(CONFIG.WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'withdraw', project, user, items:cart}), mode:'no-cors'});
-                
-                const currentCart = [...cart];
-                const currentSignature = signature;
-                
-                cart=[]; 
-                updateCartUI(); 
-                document.getElementById('project-name').value=''; 
-                document.getElementById('withdrawer-name').value=''; 
-                clearSignature();
-                if(isMobileCartOpen) toggleMobileCart(); 
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: 'ทำรายการสำเร็จ',
-                    text: 'บันทึกข้อมูลและตัดสตอกเรียบร้อยแล้ว',
-                    showCancelButton: true,
-                    confirmButtonText: '<i class="fa-solid fa-file-pdf"></i> ดาวน์โหลดใบเบิก PDF',
-                    cancelButtonText: 'ปิด',
-                    confirmButtonColor: '#4f46e5',
-                    cancelButtonColor: '#64748b'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        generatePDF(project, user, currentCart, record.id, record.date, currentSignature);
-                    }
-                });
+                    fetch(CONFIG.WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'withdraw', project, user, items:cart}), mode:'no-cors'}).catch(e => console.log('Fetch error', e));
+                    
+                    const currentCart = [...cart];
+                    const currentSignature = signature;
+                    
+                    cart=[]; updateCartUI(); document.getElementById('project-name').value=''; document.getElementById('withdrawer-name').value=''; clearSignature();
+                    if(isMobileCartOpen) toggleMobileCart(); 
+                    
+                    Swal.fire({
+                        icon: 'success', title: 'ทำรายการสำเร็จ', text: 'บันทึกข้อมูลและตัดสตอกเรียบร้อยแล้ว',
+                        showCancelButton: true, confirmButtonText: '<i class="fa-solid fa-file-pdf"></i> ดาวน์โหลดใบเบิก PDF',
+                        cancelButtonText: 'ปิด', confirmButtonColor: '#4f46e5', cancelButtonColor: '#64748b'
+                    }).then((result) => {
+                        if (result.isConfirmed) { generatePDF(project, user, currentCart, record.id, record.date, currentSignature); }
+                    });
+                }
+            } catch (error) {
+                console.error("Confirm Error:", error);
+                Swal.fire('Error', 'เกิดข้อผิดพลาดที่ไม่คาดคิด กรุณาลองใหม่', 'error');
             }
         }
+
         function renderHistory() {
             const list = document.getElementById('history-list'); list.innerHTML = '';
             if(withdrawHistory.length===0) { list.innerHTML=`<div class="p-8 text-center text-slate-400 text-sm">ยังไม่มีประวัติ</div>`; return; }
             withdrawHistory.forEach((h, index) => { 
                 const summary = h.items.map(i=>`${i.name} (${i.qty})`).join(', '); 
-                list.innerHTML += `
-                <div class="p-4 hover:bg-slate-50 transition group flex justify-between items-center">
-                    <div class="flex-1 min-w-0 pr-4">
-                        <div class="flex justify-between items-start mb-1">
-                            <span class="font-bold text-sm text-slate-700">${h.project}</span>
-                            <span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500">${h.date}</span>
-                        </div>
-                        <div class="text-xs text-slate-500 mb-2 truncate"><i class="fa-solid fa-user mr-1"></i> ${h.user}</div>
-                        <div class="text-xs text-indigo-600 bg-indigo-50 p-2 rounded-lg line-clamp-1">${summary}</div>
-                    </div>
-                    <button onclick="downloadPDFHistory(${index})" class="w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 flex items-center justify-center transition shadow-sm" title="ดาวน์โหลด PDF">
-                        <i class="fa-solid fa-file-pdf"></i>
-                    </button>
-                </div>`; 
+                list.innerHTML += `<div class="p-4 hover:bg-slate-50 transition group flex justify-between items-center"><div class="flex-1 min-w-0 pr-4"><div class="flex justify-between items-start mb-1"><span class="font-bold text-sm text-slate-700">${h.project}</span><span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500">${h.date}</span></div><div class="text-xs text-slate-500 mb-2 truncate"><i class="fa-solid fa-user mr-1"></i> ${h.user}</div><div class="text-xs text-indigo-600 bg-indigo-50 p-2 rounded-lg line-clamp-1">${summary}</div></div><button onclick="downloadPDFHistory(${index})" class="w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 flex items-center justify-center transition shadow-sm"><i class="fa-solid fa-file-pdf"></i></button></div>`; 
             });
         }
         function clearHistory() { Swal.fire({title:'ล้างประวัติ?',icon:'warning',showCancelButton:true,confirmButtonColor:'#ef4444',confirmButtonText:'ลบ'}).then((r)=>{if(r.isConfirmed){withdrawHistory=[];localStorage.removeItem('withdrawHistory');renderHistory();}})}
 
         function generatePDF(project, user, items, ref, dateStr, signature) {
             const element = document.createElement('div');
-            element.style.padding = '40px';
-            element.style.fontFamily = "'Sarabun', sans-serif";
-            element.style.color = '#1e293b';
-            element.style.background = '#fff';
-            
-            let itemsRows = '';
-            items.forEach((c, i) => {
-                itemsRows += `<tr>
-                    <td style="border:1px solid #cbd5e1;padding:8px;text-align:center">${i+1}</td>
-                    <td style="border:1px solid #cbd5e1;padding:8px">${c.name}</td>
-                    <td style="border:1px solid #cbd5e1;padding:8px;text-align:center">${c.qty}</td>
-                </tr>`;
-            });
-
-            // Signature Image Element
+            element.style.padding = '40px'; element.style.fontFamily = "'Sarabun', sans-serif"; element.style.color = '#1e293b'; element.style.background = '#fff';
+            let itemsRows = ''; items.forEach((c, i) => { itemsRows += `<tr><td style="border:1px solid #cbd5e1;padding:8px;text-align:center">${i+1}</td><td style="border:1px solid #cbd5e1;padding:8px">${c.name}</td><td style="border:1px solid #cbd5e1;padding:8px;text-align:center">${c.qty}</td></tr>`; });
             const sigImg = signature ? `<img src="${signature}" style="max-height: 40px; display:block; margin: 0 auto;">` : '';
-
-            element.innerHTML = `
-                <div style="display:flex;justify-content:space-between;margin-bottom:30px;border-bottom:3px solid #1e293b;padding-bottom:20px;">
-                    <div><div style="font-size:28px;font-weight:bold;">ใบเบิกวัสดุอุปกรณ์</div><div>Material Requisition Note</div></div>
-                    <div style="text-align:right;"><div>PROJECT STOCK</div><div>เอกสารภายใน</div></div>
-                </div>
-                <table style="width:100%;margin-bottom:30px;">
-                    <tr><td style="padding:5px 0;"><strong>โครงการ:</strong> ${project}</td><td style="text-align:right;"><strong>วันที่:</strong> ${dateStr || new Date().toLocaleDateString('th-TH')}</td></tr>
-                    <tr><td style="padding:5px 0;"><strong>ผู้เบิก:</strong> ${user}</td><td style="text-align:right;"><strong>เลขที่:</strong> ${ref}</td></tr>
-                </table>
-                <table style="width:100%;border-collapse:collapse;margin-bottom:50px;">
-                    <thead><tr style="background-color:#f1f5f9;"><th style="border:1px solid #cbd5e1;padding:12px;">ลำดับ</th><th style="border:1px solid #cbd5e1;padding:12px;">รายการ</th><th style="border:1px solid #cbd5e1;padding:12px;">จำนวน</th></tr></thead>
-                    <tbody>${itemsRows}</tbody>
-                </table>
-                <div style="display:flex;justify-content:space-between;margin-top:80px;">
-                    <div style="text-align:center;width:40%;">
-                        <div style="height:50px; display:flex; align-items:flex-end; justify-content:center; margin-bottom:5px;">
-                            ${sigImg}
-                        </div>
-                        <div style="border-bottom:1px solid #94a3b8;height:1px;margin-bottom:10px;"></div>
-                        <div style="font-weight:bold;">ผู้เบิก (Requester)</div>
-                        <div style="font-size:12px; color:#64748b;">${user}</div>
-                    </div>
-                    <div style="text-align:center;width:40%;">
-                        <div style="height:50px;"></div>
-                        <div style="border-bottom:1px solid #94a3b8;height:1px;margin-bottom:10px;"></div>
-                        <div style="font-weight:bold;">ผู้อนุมัติ (Approver)</div>
-                        <div style="font-size:12px; color:#64748b;">ลงชื่อหัวหน้าโครงการ</div>
-                    </div>
-                </div>
-            `;
-
+            element.innerHTML = `<div style="display:flex;justify-content:space-between;margin-bottom:30px;border-bottom:3px solid #1e293b;padding-bottom:20px;"><div><div style="font-size:28px;font-weight:bold;">ใบเบิกวัสดุอุปกรณ์</div><div>Material Requisition Note</div></div><div style="text-align:right;"><div>PROJECT STOCK</div><div>เอกสารภายใน</div></div></div><table style="width:100%;margin-bottom:30px;"><tr><td style="padding:5px 0;"><strong>โครงการ:</strong> ${project}</td><td style="text-align:right;"><strong>วันที่:</strong> ${dateStr || new Date().toLocaleDateString('th-TH')}</td></tr><tr><td style="padding:5px 0;"><strong>ผู้เบิก:</strong> ${user}</td><td style="text-align:right;"><strong>เลขที่:</strong> ${ref}</td></tr></table><table style="width:100%;border-collapse:collapse;margin-bottom:50px;"><thead><tr style="background-color:#f1f5f9;"><th style="border:1px solid #cbd5e1;padding:12px;">ลำดับ</th><th style="border:1px solid #cbd5e1;padding:12px;">รายการ</th><th style="border:1px solid #cbd5e1;padding:12px;">จำนวน</th></tr></thead><tbody>${itemsRows}</tbody></table><div style="display:flex;justify-content:space-between;margin-top:80px;"><div style="text-align:center;width:40%;"><div style="height:50px; display:flex; align-items:flex-end; justify-content:center; margin-bottom:5px;">${sigImg}</div><div style="border-bottom:1px solid #94a3b8;height:1px;margin-bottom:10px;"></div><div style="font-weight:bold;">ผู้เบิก (Requester)</div><div style="font-size:12px; color:#64748b;">${user}</div></div><div style="text-align:center;width:40%;"><div style="height:50px;"></div><div style="border-bottom:1px solid #94a3b8;height:1px;margin-bottom:10px;"></div><div style="font-weight:bold;">ผู้อนุมัติ (Approver)</div><div style="font-size:12px; color:#64748b;">ลงชื่อหัวหน้าโครงการ</div></div></div>`;
             html2pdf().set({ margin: 0.5, filename: `Req_${ref}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } }).from(element).save();
         }
     </script>
