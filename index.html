@@ -598,10 +598,10 @@
 
         function onScanSuccess(decodedText, decodedResult) {
             stopScanner(); // Stop scanning once found
+            // Direct ID lookup instead of object parsing
             const item = inventoryData.find(i => i.ID == decodedText);
             if (item) {
-                addToCart(item);
-                // No need for alert here as addToCart shows toast
+                addToCart(item.ID); // Pass ID only
             } else {
                 Swal.fire('ไม่พบสินค้า', `ไม่พบรหัสสินค้า: ${decodedText} ในระบบ`, 'error');
             }
@@ -655,7 +655,8 @@
                 const isAsset = item.Type === 'asset';
                 const buttonText = isAsset ? '<i class="fa-solid fa-ban"></i> เบิกไม่ได้' : '<i class="fa-solid fa-plus"></i> เพิ่ม';
                 const buttonClass = isAsset ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-indigo-50 text-indigo-600 font-bold group-hover:bg-indigo-600 group-hover:text-white';
-                const clickAction = isAsset ? '' : `onclick='addToCart(${JSON.stringify(item)})'`;
+                // Safe ID passing: Pass only the ID string, not the whole object
+                const clickAction = isAsset ? '' : `onclick="addToCart('${item.ID}')"`;
                 const badge = isAsset ? '<div class="absolute top-2 left-2 bg-gray-800/80 text-white text-[10px] px-2 py-1 rounded-md z-10">Asset</div>' : '';
 
                 grid.innerHTML += `
@@ -671,8 +672,10 @@
                 </div>`; 
             });
         }
-        function addToCart(itemObj) {
-            const item = typeof itemObj === 'string' ? JSON.parse(itemObj) : itemObj; 
+        function addToCart(itemId) {
+            // Find item by ID from global data
+            const item = inventoryData.find(i => i.ID == itemId);
+            if (!item) return;
             
             // Additional check if somehow an asset gets passed here
             if (item.Type === 'asset') {
@@ -681,7 +684,14 @@
             }
 
             const existing = cart.find(c => c.id === item.ID);
-            if(existing) { if(existing.qty < parseInt(item.Quantity)) existing.qty++; else return Swal.fire({icon:'warning', title:'สินค้าหมด', toast:true, position:'top', timer:1500, showConfirmButton:false}); } else { cart.push({ id: item.ID, name: item.Name, qty: 1, max: parseInt(item.Quantity), price: item.Price }); } updateCartUI(); Swal.mixin({toast:true, position:'bottom-center', showConfirmButton:false, timer:1000, background:'#1e293b', color:'#fff'}).fire({icon:'success', title:`เพิ่ม "${item.Name}" แล้ว`});
+            if(existing) { 
+                if(existing.qty < parseInt(item.Quantity)) existing.qty++; 
+                else return Swal.fire({icon:'warning', title:'สินค้าหมด', toast:true, position:'top', timer:1500, showConfirmButton:false}); 
+            } else { 
+                cart.push({ id: item.ID, name: item.Name, qty: 1, max: parseInt(item.Quantity), price: item.Price }); 
+            } 
+            updateCartUI(); 
+            Swal.mixin({toast:true, position:'bottom-center', showConfirmButton:false, timer:1000, background:'#1e293b', color:'#fff'}).fire({icon:'success', title:`เพิ่ม "${item.Name}" แล้ว`});
         }
         function updateCartUI() {
             const container = document.getElementById('cart-items'); container.innerHTML = ''; let total = 0;
@@ -697,57 +707,91 @@
         }
 
         async function confirmWithdraw() {
-            const project = document.getElementById('project-name').value, user = document.getElementById('withdrawer-name').value;
-            if(cart.length === 0 || !project || !user) return Swal.fire({icon:'warning', title:'ข้อมูลไม่ครบ'});
-            const res = await Swal.fire({title:'ยืนยันการเบิก?', text:`โครงการ: ${project}`, icon:'question', showCancelButton:true, confirmButtonColor:'#4f46e5', confirmButtonText:'ยืนยัน'});
+            const project = document.getElementById('project-name').value;
+            const user = document.getElementById('withdrawer-name').value;
+
+            if(cart.length === 0 || !project || !user) return Swal.fire({icon:'warning', title:'ข้อมูลไม่ครบ', text:'กรุณาเลือกสินค้าและกรอกข้อมูลให้ครบ'});
+            
+            const res = await Swal.fire({
+                title: 'ยืนยันการเบิก?', 
+                text: `โครงการ: ${project} จำนวน ${document.getElementById('cart-total-qty').innerText}`, 
+                icon: 'question', 
+                showCancelButton: true, 
+                confirmButtonColor: '#4f46e5', 
+                confirmButtonText: 'ยืนยัน'
+            });
             
             if(res.isConfirmed) {
-                // Optimistic UI Update: Deduct stock locally immediately
-                cart.forEach(cartItem => {
-                    const idx = inventoryData.findIndex(i => i.ID === cartItem.id);
-                    if(idx !== -1) {
-                        // Deduct locally
-                        let currentQty = parseInt(inventoryData[idx].Quantity);
-                        inventoryData[idx].Quantity = Math.max(0, currentQty - cartItem.qty);
-                    }
-                });
-                // Refresh Inventory UI to show new stock
-                processData();
+                try {
+                    // Show Loading
+                    Swal.fire({
+                        title: 'กำลังบันทึก...',
+                        text: 'กรุณารอสักครู่',
+                        allowOutsideClick: false,
+                        didOpen: () => Swal.showLoading()
+                    });
 
-                Swal.fire({title:'กำลังบันทึก...', didOpen:()=>Swal.showLoading()});
-                
-                // Save history record
-                const record = { date: new Date().toLocaleString(), project, user, items: [...cart], id: 'TX-'+Date.now().toString().slice(-6) }; 
-                withdrawHistory.unshift(record); 
-                localStorage.setItem('withdrawHistory', JSON.stringify(withdrawHistory)); 
-                renderHistory();
+                    // Simulate network delay to ensure UI updates
+                    await new Promise(resolve => setTimeout(resolve, 800));
 
-                // Send to backend
-                fetch(CONFIG.WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'withdraw', project, user, items:cart}), mode:'no-cors'});
-                
-                // Clear form
-                const currentCart = [...cart]; // Keep copy for PDF generation if needed
-                cart=[]; 
-                updateCartUI(); 
-                document.getElementById('project-name').value=''; 
-                document.getElementById('withdrawer-name').value=''; 
-                if(isMobileCartOpen) toggleMobileCart(); 
-                
-                // Show Success Modal with Manual Download Button
-                Swal.fire({
-                    icon: 'success',
-                    title: 'ทำรายการสำเร็จ',
-                    text: 'บันทึกข้อมูลและตัดสตอกเรียบร้อยแล้ว',
-                    showCancelButton: true,
-                    confirmButtonText: '<i class="fa-solid fa-file-pdf"></i> ดาวน์โหลดใบเบิก PDF',
-                    cancelButtonText: 'ปิด',
-                    confirmButtonColor: '#4f46e5',
-                    cancelButtonColor: '#64748b'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        generatePDF(project, user, currentCart, record.id, record.date);
-                    }
-                });
+                    // Optimistic UI Update: Deduct stock locally immediately
+                    cart.forEach(cartItem => {
+                        const idx = inventoryData.findIndex(i => i.ID === cartItem.id);
+                        if(idx !== -1) {
+                            // Deduct locally
+                            let currentQty = parseInt(inventoryData[idx].Quantity);
+                            inventoryData[idx].Quantity = Math.max(0, currentQty - cartItem.qty);
+                        }
+                    });
+                    // Refresh Inventory UI to show new stock
+                    processData();
+                    renderWithdrawGrid();
+
+                    // Save history record
+                    const record = { date: new Date().toLocaleString(), project, user, items: [...cart], id: 'TX-'+Date.now().toString().slice(-6) }; 
+                    withdrawHistory.unshift(record); 
+                    localStorage.setItem('withdrawHistory', JSON.stringify(withdrawHistory)); 
+                    renderHistory();
+
+                    // Send to backend (Fire and Forget to avoid hanging)
+                    fetch(CONFIG.WEB_APP_URL, {
+                        method:'POST', 
+                        body:JSON.stringify({action:'withdraw', project, user, items:cart}), 
+                        mode:'no-cors'
+                    }).catch(e => console.error("Sync Error", e));
+                    
+                    // Capture current state for PDF
+                    const currentCart = [...cart];
+                    const currentRecord = { ...record };
+
+                    // Clear form
+                    cart=[]; 
+                    updateCartUI(); 
+                    document.getElementById('project-name').value=''; 
+                    document.getElementById('withdrawer-name').value=''; 
+                    if(isMobileCartOpen) toggleMobileCart(); 
+                    
+                    // Show Success Modal with Manual Download Button
+                    await Swal.fire({
+                        icon: 'success',
+                        title: 'ทำรายการสำเร็จ',
+                        text: 'บันทึกข้อมูลเรียบร้อยแล้ว',
+                        showCancelButton: true,
+                        confirmButtonText: '<i class="fa-solid fa-file-pdf"></i> ดาวน์โหลดใบเบิก PDF',
+                        cancelButtonText: 'ปิด',
+                        confirmButtonColor: '#4f46e5',
+                        cancelButtonColor: '#64748b',
+                        allowOutsideClick: false
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            generatePDF(project, user, currentCart, currentRecord.id, currentRecord.date);
+                        }
+                    });
+
+                } catch (error) {
+                    console.error(error);
+                    Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถทำรายการได้: ' + error.message, 'error');
+                }
             }
         }
         function renderHistory() {
