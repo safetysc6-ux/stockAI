@@ -90,6 +90,9 @@
         #scanner-modal { z-index: 60; }
         #reader { width: 100%; border-radius: 1rem; overflow: hidden; background: #000; }
         #reader video { object-fit: cover; border-radius: 1rem; width: 100% !important; height: 100% !important; }
+        
+        /* Signature Pad Fix */
+        #signature-pad { touch-action: none; background-color: #fff; cursor: crosshair; }
     </style>
 </head>
 <body class="text-slate-800 h-screen flex flex-col md:flex-row overflow-hidden bg-slate-50">
@@ -353,6 +356,7 @@
         // Signature Vars
         let signaturePad, signatureCtx;
         let isDrawing = false;
+        let resizeSignaturePad; // Global variable to hold resize function
 
         document.addEventListener('DOMContentLoaded', () => { 
             loadInventoryData(); 
@@ -381,7 +385,14 @@
             const panel = document.getElementById('cart-panel');
             const backdrop = document.getElementById('cart-backdrop');
             isMobileCartOpen = !isMobileCartOpen;
-            if(isMobileCartOpen) { panel.classList.add('open'); backdrop.classList.add('open'); }
+            if(isMobileCartOpen) { 
+                panel.classList.add('open'); 
+                backdrop.classList.add('open'); 
+                // Resize canvas when drawer opens to ensure correct dimensions
+                setTimeout(() => {
+                    if(typeof resizeSignaturePad === 'function') resizeSignaturePad();
+                }, 300); 
+            }
             else { panel.classList.remove('open'); backdrop.classList.remove('open'); }
         }
 
@@ -408,15 +419,17 @@
             const canvas = document.getElementById('signature-pad');
             signatureCtx = canvas.getContext('2d');
             
-            // Resize canvas to match display size
-            function resizeCanvas() {
+            // Define resize function
+            resizeSignaturePad = function() {
                 const rect = canvas.getBoundingClientRect();
-                canvas.width = rect.width;
-                canvas.height = rect.height;
-            }
-            window.addEventListener('resize', resizeCanvas);
-            // Delay resize to ensure element is rendered
-            setTimeout(resizeCanvas, 500);
+                if (rect.width > 0 && rect.height > 0) {
+                    canvas.width = rect.width;
+                    canvas.height = rect.height;
+                }
+            };
+            
+            window.addEventListener('resize', resizeSignaturePad);
+            setTimeout(resizeSignaturePad, 500);
 
             // Drawing Events
             const startDrawing = (e) => {
