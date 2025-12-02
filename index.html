@@ -699,23 +699,53 @@
             const project = document.getElementById('project-name').value, user = document.getElementById('withdrawer-name').value;
             if(cart.length === 0 || !project || !user) return Swal.fire({icon:'warning', title:'ข้อมูลไม่ครบ'});
             const res = await Swal.fire({title:'ยืนยันการเบิก?', text:`โครงการ: ${project}`, icon:'question', showCancelButton:true, confirmButtonColor:'#4f46e5', confirmButtonText:'ยืนยัน'});
+            
             if(res.isConfirmed) {
-                Swal.fire({title:'บันทึก...', didOpen:()=>Swal.showLoading()});
-                const record = { date: new Date().toLocaleString(), project, user, items: [...cart], id: 'TX-'+Date.now().toString().slice(-6) }; withdrawHistory.unshift(record); localStorage.setItem('withdrawHistory', JSON.stringify(withdrawHistory)); renderHistory();
+                // Optimistic UI Update: Deduct stock locally immediately
+                cart.forEach(cartItem => {
+                    const idx = inventoryData.findIndex(i => i.ID === cartItem.id);
+                    if(idx !== -1) {
+                        // Deduct locally
+                        let currentQty = parseInt(inventoryData[idx].Quantity);
+                        inventoryData[idx].Quantity = Math.max(0, currentQty - cartItem.qty);
+                    }
+                });
+                // Refresh Inventory UI to show new stock
+                processData();
+
+                Swal.fire({title:'กำลังบันทึก...', didOpen:()=>Swal.showLoading()});
+                
+                // Save history record
+                const record = { date: new Date().toLocaleString(), project, user, items: [...cart], id: 'TX-'+Date.now().toString().slice(-6) }; 
+                withdrawHistory.unshift(record); 
+                localStorage.setItem('withdrawHistory', JSON.stringify(withdrawHistory)); 
+                renderHistory();
+
+                // Send to backend
                 fetch(CONFIG.WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'withdraw', project, user, items:cart}), mode:'no-cors'});
                 
-                // Generate PDF immediately
-                generatePDF(project, user, cart, record.id, record.date);
+                // Clear form
+                const currentCart = [...cart]; // Keep copy for PDF generation if needed
+                cart=[]; 
+                updateCartUI(); 
+                document.getElementById('project-name').value=''; 
+                document.getElementById('withdrawer-name').value=''; 
+                if(isMobileCartOpen) toggleMobileCart(); 
                 
-                cart=[]; updateCartUI(); document.getElementById('project-name').value=''; document.getElementById('withdrawer-name').value=''; if(isMobileCartOpen) toggleMobileCart(); 
-                
-                // Success with download PDF hint
+                // Show Success Modal with Manual Download Button
                 Swal.fire({
-                    icon:'success', 
-                    title:'เรียบร้อย', 
-                    html: 'บันทึกข้อมูลแล้ว PDF จะถูกดาวน์โหลดอัตโนมัติ<br>หรือสามารถดาวน์โหลดซ้ำได้จากหน้าประวัติ',
-                    timer: 2000, 
-                    showConfirmButton:false
+                    icon: 'success',
+                    title: 'ทำรายการสำเร็จ',
+                    text: 'บันทึกข้อมูลและตัดสตอกเรียบร้อยแล้ว',
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fa-solid fa-file-pdf"></i> ดาวน์โหลดใบเบิก PDF',
+                    cancelButtonText: 'ปิด',
+                    confirmButtonColor: '#4f46e5',
+                    cancelButtonColor: '#64748b'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        generatePDF(project, user, currentCart, record.id, record.date);
+                    }
                 });
             }
         }
