@@ -448,47 +448,69 @@
             Swal.fire({
                 title: 'QR Code สำหรับปริ้น',
                 html: `
-                    <div style="display:flex; border:1px solid #ccc; width:288px; height:96px; margin:0 auto; align-items:center; padding:5px; text-align:left;">
+                    <div style="display:flex; border:1px solid #ccc; width:288px; height:96px; margin:0 auto; align-items:center; padding:5px; text-align:left; overflow:hidden;">
                         <img src="${qrUrl}" style="width:80px; height:80px;">
                         <div style="margin-left:10px; font-family:'Sarabun';">
                             <div style="font-weight:bold; font-size:14px; line-height:1.2; max-height:60px; overflow:hidden;">${name}</div>
                             <div style="font-size:10px; color:#666;">${id}</div>
                         </div>
                     </div>
-                    <p class="text-xs text-gray-500 mt-2">ขนาด: 24mm x 72mm</p>
-                    <p class="text-xs text-red-500 mt-1">** หากกดแล้วเงียบ ให้ตรวจสอบ Pop-up Blocker **</p>
+                    <p class="text-xs text-gray-500 mt-2">ขนาด: 24mm x 72mm (Safe Zone)</p>
+                    <div class="text-left text-xs text-red-500 mt-2 bg-red-50 p-2 rounded">
+                        <b>คำแนะนำหากปริ้นไม่ออก:</b><br>
+                        1. ตั้งค่า Driver กระดาษเป็น 24mm x 72mm<br>
+                        2. ตั้งค่า Margins ในหน้า Preview เป็น "None" หรือ "Minimum"<br>
+                        3. ปิด Header/Footer ในหน้า Preview
+                    </div>
                 `,
                 showCancelButton: true,
-                confirmButtonText: '<i class="fa-solid fa-print"></i> ปริ้นสติกเกอร์',
+                confirmButtonText: '<i class="fa-solid fa-print"></i> เปิดหน้าต่างสั่งปริ้น',
                 confirmButtonColor: '#4f46e5',
                 cancelButtonText: 'ปิด'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    const printWindow = window.open('', '', 'height=400,width=600');
+                    const printWindow = window.open('', '_blank', 'height=400,width=600');
                     
                     if (!printWindow) {
-                        Swal.fire('แจ้งเตือน', 'Pop-up ถูกบล็อก! กรุณาอนุญาต Pop-up สำหรับเว็บไซต์นี้เพื่อพิมพ์', 'error');
+                        Swal.fire('แจ้งเตือน', 'Pop-up ถูกบล็อก! กรุณาอนุญาต Pop-up', 'error');
                         return;
                     }
 
-                    printWindow.document.write(`
+                    const content = `
                         <html>
                         <head>
-                            <title>Print Label</title>
+                            <title>Print Label - ${name}</title>
                             <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
                             <style>
+                                /* บังคับขนาดหน้ากระดาษและลบขอบอัตโนมัติ */
                                 @page { size: 72mm 24mm; margin: 0; }
-                                body { margin: 0; padding: 0; font-family: 'Sarabun', sans-serif; }
-                                .sticker {
+                                
+                                body { 
+                                    margin: 0; 
+                                    padding: 0; 
+                                    font-family: 'Sarabun', sans-serif; 
+                                    background: #fff;
+                                    width: 72mm;
+                                    height: 24mm;
+                                    overflow: hidden; /* ป้องกันเนื้อหาล้น */
+                                }
+                                
+                                .sticker-container {
                                     width: 72mm;
                                     height: 24mm;
                                     display: flex;
                                     align-items: center;
-                                    padding: 1mm 2mm;
-                                    box-sizing: border-box;
-                                    overflow: hidden;
-                                    page-break-inside: avoid;
+                                    justify-content: center;
                                 }
+
+                                .sticker {
+                                    width: 70mm; /* Safe Zone: ลดขนาดลง 2mm */
+                                    height: 22mm; /* Safe Zone: ลดขนาดลง 2mm */
+                                    display: flex;
+                                    align-items: center;
+                                    /* box-sizing: border-box; ไม่ใช้ border เพื่อป้องกันขนาดเพี้ยน */
+                                }
+                                
                                 .qr-box {
                                     width: 20mm;
                                     height: 20mm;
@@ -497,12 +519,14 @@
                                     justify-content: center;
                                     flex-shrink: 0;
                                 }
+                                
                                 .qr-box img {
                                     width: 100%;
                                     height: 100%;
                                     object-fit: contain;
-                                    image-rendering: pixelated;
+                                    display: block; /* แก้บั๊กขอบภาพ */
                                 }
+                                
                                 .info-box {
                                     flex: 1;
                                     padding-left: 2mm;
@@ -510,35 +534,84 @@
                                     flex-direction: column;
                                     justify-content: center;
                                     overflow: hidden;
+                                    height: 100%;
                                 }
+                                
                                 .name {
                                     font-size: 10pt;
                                     font-weight: bold;
                                     line-height: 1.1;
-                                    max-height: 14mm;
+                                    max-height: 13mm;
                                     overflow: hidden;
                                     word-break: break-word;
                                 }
+                                
                                 .id {
                                     font-size: 7pt;
                                     margin-top: 1mm;
                                     color: #000;
                                 }
+
+                                /* ซ่อนปุ่มเมื่อสั่งปริ้น */
+                                @media print {
+                                    .no-print { display: none !important; }
+                                    body { -webkit-print-color-adjust: exact; }
+                                }
+
+                                .no-print-container {
+                                    position: fixed; bottom: 10px; width: 100%; text-align: center; 
+                                    background: rgba(255,255,255,0.95); padding: 15px; border-top: 1px solid #ddd;
+                                }
+                                .btn {
+                                    background: #4f46e5; color: white; padding: 10px 20px; border: none; 
+                                    border-radius: 8px; cursor: pointer; font-size: 14px; margin: 0 5px; font-weight: bold;
+                                }
                             </style>
                         </head>
                         <body>
-                            <div class="sticker">
-                                <div class="qr-box">
-                                    <img src="${qrUrl}" onload="setTimeout(function(){ window.print(); window.close(); }, 1000)" onerror="alert('โหลดภาพไม่สำเร็จ')" />
-                                </div>
-                                <div class="info-box">
-                                    <div class="name">${name}</div>
-                                    <div class="id">ID: ${id}</div>
+                            <div class="sticker-container">
+                                <div class="sticker">
+                                    <div class="qr-box">
+                                        <img src="${qrUrl}" id="qrImg" />
+                                    </div>
+                                    <div class="info-box">
+                                        <div class="name">${name}</div>
+                                        <div class="id">ID: ${id}</div>
+                                    </div>
                                 </div>
                             </div>
+                            
+                            <div class="no-print no-print-container">
+                                <div style="margin-bottom:10px; color:#ef4444; font-weight:bold; font-size:14px;">
+                                    ⚠️ หากปริ้นไม่ออก ให้ตั้งค่า Margins เป็น "None"
+                                </div>
+                                <button class="btn" onclick="window.print()">🖨️ สั่งปริ้น</button>
+                                <button class="btn" onclick="window.close()" style="background:#64748b;">ปิด</button>
+                            </div>
+
+                            <script>
+                                const img = document.getElementById('qrImg');
+                                
+                                function doPrint() {
+                                    // Delay นานขึ้นเล็กน้อยเพื่อให้ Render สมบูรณ์
+                                    setTimeout(() => {
+                                        window.focus(); // สำคัญมากสำหรับ Chrome
+                                        window.print();
+                                    }, 800);
+                                }
+
+                                if (img.complete) {
+                                    doPrint();
+                                } else {
+                                    img.onload = doPrint;
+                                    img.onerror = () => alert('โหลด QR Code ไม่สำเร็จ กรุณาลองใหม่');
+                                }
+                            <\/script>
                         </body>
                         </html>
-                    `);
+                    `;
+                    
+                    printWindow.document.write(content);
                     printWindow.document.close();
                 }
             });
