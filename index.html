@@ -2,7 +2,6 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <!-- ป้องกันการซูม และปรับแต่งสำหรับมือถือ -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -18,6 +17,8 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- HTML5-QRCode Scanner -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
@@ -43,9 +44,33 @@
         .fade-in { animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         #print-area { display: none; }
-        .floating-input { width: 100%; border: 1px solid #cbd5e1; border-radius: 0.75rem; padding: 1rem 1rem 0.5rem; outline: none; transition: all 0.2s; background: white; }
+        
+        /* Fixed Floating Input Styles */
+        .floating-input-group { position: relative; margin-bottom: 1rem; }
+        .floating-input { 
+            width: 100%; 
+            border: 1px solid #cbd5e1; 
+            border-radius: 0.75rem; 
+            padding: 1.25rem 1rem 0.5rem; /* Increased top padding */
+            outline: none; 
+            transition: all 0.2s; 
+            background: white;
+            font-size: 1rem;
+            color: #1e293b;
+        }
         .floating-input:focus { border-color: #4f46e5; ring: 2px solid #e0e7ff; }
-        .floating-label { position: absolute; top: 0.25rem; left: 1rem; font-size: 0.75rem; color: #64748b; pointer-events: none; transition: all 0.2s; }
+        .floating-label { 
+            position: absolute; 
+            top: 0.25rem; 
+            left: 1rem; 
+            font-size: 0.75rem; 
+            color: #64748b; 
+            pointer-events: none; 
+            transition: all 0.2s;
+            z-index: 10; /* Added z-index to ensure visibility */
+            font-weight: 600;
+        }
+        
         .mobile-drawer { position: fixed; bottom: 64px; left: 0; right: 0; height: 85vh; background: white; z-index: 40; border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem; box-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.1); border-top: 1px solid #e2e8f0; display: flex; flex-direction: column; transform: translateY(120%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
         .mobile-drawer.open { transform: translateY(0); }
         .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 30; opacity: 0; pointer-events: none; transition: opacity 0.3s; backdrop-filter: blur(2px); }
@@ -61,6 +86,10 @@
         .file-upload-wrapper input { position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10; }
         .preview-img { width: 100%; height: 100%; object-fit: contain; display: none; }
         .upload-placeholder { text-align: center; color: #64748b; }
+        /* Scanner Styles */
+        #scanner-modal { z-index: 60; }
+        #reader { width: 100%; border-radius: 1rem; overflow: hidden; }
+        #reader video { object-fit: cover; border-radius: 1rem; }
     </style>
 </head>
 <body class="text-slate-800 h-screen flex flex-col md:flex-row overflow-hidden bg-slate-50">
@@ -139,7 +168,7 @@
                     <div id="inventory-empty" class="hidden flex-col items-center justify-center py-12 text-slate-400"><i class="fa-solid fa-box-open text-6xl mb-4 opacity-50"></i><p>ไม่พบรายการสินค้า</p></div>
                 </section>
 
-                <!-- 3. ADD ITEM (UPDATED FOR IMAGE UPLOAD) -->
+                <!-- 3. ADD ITEM (FIXED LABELS) -->
                 <section id="add-item" class="page-section hidden fade-in">
                     <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                         <div class="bg-indigo-50 p-6 border-b border-indigo-100 flex items-center gap-4">
@@ -147,13 +176,8 @@
                             <div><h3 class="font-bold text-indigo-900 text-lg">เพิ่มสินค้าใหม่</h3><p class="text-xs text-indigo-600">กรอกข้อมูลเพื่อนำเข้าสู่ระบบ</p></div>
                         </div>
                         <form id="add-item-form" onsubmit="submitAddItem(event)" class="p-6 md:p-8 space-y-4">
-                            <!-- Image Upload Field -->
                             <div class="file-upload-wrapper" id="add-image-wrapper">
-                                <div class="upload-placeholder">
-                                    <i class="fa-solid fa-cloud-arrow-up text-3xl mb-2 text-indigo-400"></i>
-                                    <p class="text-sm font-semibold">แตะเพื่ออัปโหลดรูปภาพ</p>
-                                    <p class="text-xs text-slate-400">รองรับ JPG, PNG (Max 2MB)</p>
-                                </div>
+                                <div class="upload-placeholder"><i class="fa-solid fa-cloud-arrow-up text-3xl mb-2 text-indigo-400"></i><p class="text-sm font-semibold">แตะเพื่ออัปโหลดรูปภาพ</p><p class="text-xs text-slate-400">รองรับ JPG, PNG (Max 2MB)</p></div>
                                 <img id="add-preview" class="preview-img">
                                 <input type="file" id="add-image-file" name="imageFile" accept="image/*" onchange="previewImage(this, 'add-preview', 'add-image-wrapper')">
                             </div>
@@ -178,7 +202,13 @@
                     </div>
                     <div class="flex flex-col md:flex-row gap-6 h-full">
                         <div class="flex-1 flex flex-col h-full">
-                            <div class="relative mb-4"><i class="fa-solid fa-search absolute left-4 top-3.5 text-slate-400"></i><input type="text" id="withdraw-search" placeholder="ค้นหาสินค้าเพื่อเบิก..." class="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none" onkeyup="renderWithdrawGrid()"></div>
+                            <div class="relative mb-4 flex gap-2">
+                                <div class="relative flex-1">
+                                    <i class="fa-solid fa-search absolute left-4 top-3.5 text-slate-400"></i>
+                                    <input type="text" id="withdraw-search" placeholder="ค้นหาสินค้าเพื่อเบิก..." class="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none" onkeyup="renderWithdrawGrid()">
+                                </div>
+                                <button onclick="startScanner()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-xl shadow-md transition flex items-center justify-center"><i class="fa-solid fa-qrcode text-xl"></i> <span class="hidden md:inline ml-2">Scan</span></button>
+                            </div>
                             <div id="withdraw-grid" class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto pb-32 md:pb-0 pr-1 content-start"></div>
                             <div id="withdraw-empty" class="hidden flex-col items-center justify-center h-64 text-slate-400"><i class="fa-solid fa-magnifying-glass-minus text-5xl mb-3 opacity-50"></i><p>ไม่พบสินค้าที่ค้นหา</p></div>
                         </div>
@@ -215,7 +245,7 @@
         <button onclick="navTo('history')" class="nav-item flex flex-col items-center justify-center w-full h-full text-slate-400 transition" data-target="history"><i class="fa-solid fa-clock-rotate-left text-xl mb-1"></i><span class="text-[10px] mt-1">ประวัติ</span></button>
     </nav>
 
-    <!-- EDIT ITEM MODAL (UPDATED WITH IMAGE UPLOAD) -->
+    <!-- EDIT ITEM MODAL -->
     <div id="edit-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
         <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50" onclick="closeEditModal()"></div>
         <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded-2xl shadow-lg z-50 overflow-y-auto transform scale-95 transition-transform duration-300 max-h-[90vh]">
@@ -227,12 +257,8 @@
                 <form id="edit-item-form" onsubmit="submitEditItem(event)" class="space-y-4">
                     <input type="hidden" name="id" id="edit-id">
                     
-                    <!-- Edit Image Upload -->
                     <div class="file-upload-wrapper h-40" id="edit-image-wrapper">
-                        <div class="upload-placeholder">
-                            <i class="fa-solid fa-image text-3xl mb-2 text-amber-400"></i>
-                            <p class="text-sm font-semibold text-slate-600">เปลี่ยนรูปภาพ</p>
-                        </div>
+                        <div class="upload-placeholder"><i class="fa-solid fa-image text-3xl mb-2 text-amber-400"></i><p class="text-sm font-semibold text-slate-600">เปลี่ยนรูปภาพ</p></div>
                         <img id="edit-preview" class="preview-img">
                         <input type="file" id="edit-image-file" name="imageFile" accept="image/*" onchange="previewImage(this, 'edit-preview', 'edit-image-wrapper')">
                         <input type="hidden" id="edit-existing-image" name="image">
@@ -254,6 +280,16 @@
         </div>
     </div>
 
+    <!-- SCANNER MODAL -->
+    <div id="scanner-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
+        <div class="modal-overlay absolute w-full h-full bg-black opacity-90" onclick="stopScanner()"></div>
+        <div class="relative w-11/12 md:max-w-lg z-50">
+            <div id="reader"></div>
+            <button onclick="stopScanner()" class="absolute -bottom-16 left-1/2 transform -translate-x-1/2 bg-white text-red-600 w-12 h-12 rounded-full flex items-center justify-center shadow-lg"><i class="fa-solid fa-times text-xl"></i></button>
+            <div class="text-white text-center mt-4 font-bold text-lg">สแกน QR Code สินค้า</div>
+        </div>
+    </div>
+
     <!-- Hidden Print Area -->
     <div id="print-area"><div style="padding:40px;font-family:'Sarabun',sans-serif;color:#1e293b;"><div style="display:flex;justify-content:space-between;margin-bottom:30px;border-bottom:3px solid #1e293b;padding-bottom:20px;"><div><div style="font-size:28px;font-weight:bold;">ใบเบิกวัสดุ</div><div>Material Requisition Note</div></div><div style="text-align:right;"><div>PROJECT STOCK</div><div>เอกสารภายใน</div></div></div><table style="width:100%;margin-bottom:30px;"><tr><td><strong>โครงการ:</strong> <span id="print-project"></span></td><td style="text-align:right;"><strong>วันที่:</strong> <span id="print-date"></span></td></tr><tr><td><strong>ผู้เบิก:</strong> <span id="print-user"></span></td><td style="text-align:right;"><strong>เลขที่:</strong> <span id="print-ref"></span></td></tr></table><table style="width:100%;border-collapse:collapse;margin-bottom:50px;"><thead><tr style="background-color:#f1f5f9;"><th style="border:1px solid #cbd5e1;padding:12px;">ลำดับ</th><th style="border:1px solid #cbd5e1;padding:12px;">รายการ</th><th style="border:1px solid #cbd5e1;padding:12px;">จำนวน</th></tr></thead><tbody id="print-items-body"></tbody></table><div style="display:flex;justify-content:space-between;margin-top:80px;"><div style="text-align:center;width:40%;"><div style="border-bottom:1px solid #94a3b8;height:1px;margin-bottom:10px;"></div><div>ผู้เบิก</div></div><div style="text-align:center;width:40%;"><div style="border-bottom:1px solid #94a3b8;height:1px;margin-bottom:10px;"></div><div>ผู้อนุมัติ</div></div></div></div></div>
 
@@ -269,6 +305,7 @@
         let isMobileCartOpen = false;
         let selectedCategory = 'All';
         let withdrawHistory = JSON.parse(localStorage.getItem('withdrawHistory')) || [];
+        let html5QrcodeScanner = null;
 
         document.addEventListener('DOMContentLoaded', () => { loadInventoryData(); navTo('dashboard'); renderHistory(); });
 
@@ -295,20 +332,13 @@
             else { panel.classList.remove('open'); backdrop.classList.remove('open'); }
         }
 
-        // ================= IMAGE HANDLING =================
         function previewImage(input, previewId, wrapperId) {
             if (input.files && input.files[0]) {
                 const file = input.files[0];
-                if(file.size > 2 * 1024 * 1024) {
-                    Swal.fire('ขนาดไฟล์เกิน', 'กรุณาอัปโหลดรูปภาพขนาดไม่เกิน 2MB', 'warning');
-                    input.value = '';
-                    return;
-                }
+                if(file.size > 2 * 1024 * 1024) { Swal.fire('ขนาดไฟล์เกิน', 'กรุณาอัปโหลดรูปภาพขนาดไม่เกิน 2MB', 'warning'); input.value = ''; return; }
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    const img = document.getElementById(previewId);
-                    img.src = e.target.result;
-                    img.style.display = 'block';
+                    const img = document.getElementById(previewId); img.src = e.target.result; img.style.display = 'block';
                     document.getElementById(wrapperId).querySelector('.upload-placeholder').style.display = 'none';
                 }
                 reader.readAsDataURL(file);
@@ -316,13 +346,10 @@
         }
 
         const toBase64 = file => new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = error => reject(error);
+            const reader = new FileReader(); reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result); reader.onerror = error => reject(error);
         });
 
-        // ================= DATA LOADING =================
         async function loadInventoryData() {
             document.getElementById('global-skeleton').classList.remove('hidden');
             document.getElementById('app-content').classList.add('hidden');
@@ -388,7 +415,10 @@
                         <td class="p-4"><span class="px-2 py-1 bg-slate-100 rounded text-xs">${item.Category}</span></td>
                         <td class="p-4 text-right font-mono">${parseFloat(item.Price).toLocaleString()}</td>
                         <td class="p-4 text-center"><span class="px-2 py-1 rounded-full text-xs font-bold ${status}">${qty}</span></td>
-                        <td class="p-4 text-center"><button onclick="openEditModal('${item.ID}')" class="text-amber-500 hover:text-amber-700 bg-amber-50 p-2 rounded-lg"><i class="fa-solid fa-pen"></i> แก้ไข</button></td>
+                        <td class="p-4 text-center flex items-center justify-center gap-2">
+                            <button onclick="viewQRCode('${item.ID}', '${item.Name}')" class="text-slate-500 hover:text-slate-700 bg-slate-100 p-2 rounded-lg transition"><i class="fa-solid fa-qrcode"></i></button>
+                            <button onclick="openEditModal('${item.ID}')" class="text-amber-500 hover:text-amber-700 bg-amber-50 p-2 rounded-lg transition"><i class="fa-solid fa-pen"></i> แก้ไข</button>
+                        </td>
                     </tr>`;
 
                 // Mobile
@@ -396,140 +426,184 @@
                     <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex gap-4">
                         <img src="${img}" class="w-16 h-16 rounded-xl bg-slate-50 object-cover flex-shrink-0">
                         <div class="flex-1 min-w-0">
-                            <div class="flex justify-between items-start"><h4 class="font-bold truncate pr-2 text-sm">${item.Name}</h4><span class="px-2 py-0.5 rounded text-[10px] ${status}">${qty}</span></div>
-                            <p class="text-xs text-slate-500 mb-2">${item.Category}</p>
+                            <div class="flex justify-between items-start"><h4 class="font-bold truncate pr-2 text-sm">${item.Name}</h4><span class="px-2 py-0.5 rounded-md text-[10px] ${status}">${qty}</span></div>
+                            <p class="text-xs text-slate-500 mb-2 mt-1">${item.Category}</p>
                             <div class="flex justify-between items-center mt-2">
                                 <span class="text-sm font-semibold text-indigo-600">฿${parseFloat(item.Price).toLocaleString()}</span>
-                                <button onclick="openEditModal('${item.ID}')" class="text-xs bg-amber-100 text-amber-700 px-3 py-1.5 rounded-lg font-bold">แก้ไข</button>
+                                <div class="flex gap-2 items-center">
+                                    <button onclick="viewQRCode('${item.ID}', '${item.Name}')" class="text-xs bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-bold"><i class="fa-solid fa-qrcode"></i></button>
+                                    <button onclick="openEditModal('${item.ID}')" class="text-xs bg-amber-100 text-amber-700 px-3 py-1.5 rounded-lg font-bold">แก้ไข</button>
+                                </div>
                             </div>
                         </div>
                     </div>`;
             });
         }
 
-        // --- EDIT FUNCTIONALITY ---
-        function openEditModal(id) {
-            const item = inventoryData.find(i => i.ID === id);
-            if (!item) return;
-
-            document.getElementById('edit-id').value = item.ID;
-            document.getElementById('edit-name').value = item.Name;
-            document.getElementById('edit-category').value = item.Category;
-            document.getElementById('edit-existing-image').value = item.Image;
-            document.getElementById('edit-price').value = item.Price;
-            document.getElementById('edit-quantity').value = item.Quantity;
-            document.getElementById('edit-details').value = item.Details;
-
-            // Reset File Input & Preview
-            document.getElementById('edit-image-file').value = '';
-            const preview = document.getElementById('edit-preview');
-            const placeholder = document.getElementById('edit-image-wrapper').querySelector('.upload-placeholder');
+        // --- QR CODE FUNCTIONS ---
+        function viewQRCode(id, name) {
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}`; // Optimize size
             
-            if (item.Image && item.Image.startsWith('http')) {
-                preview.src = item.Image;
-                preview.style.display = 'block';
-                placeholder.style.display = 'none';
-            } else {
-                preview.style.display = 'none';
-                placeholder.style.display = 'block';
-            }
+            // Show preview first
+            Swal.fire({
+                title: 'QR Code สำหรับปริ้น',
+                html: `
+                    <div style="display:flex; border:1px solid #ccc; width:288px; height:96px; margin:0 auto; align-items:center; padding:5px; text-align:left;">
+                        <img src="${qrUrl}" style="width:80px; height:80px;">
+                        <div style="margin-left:10px; font-family:'Sarabun';">
+                            <div style="font-weight:bold; font-size:14px; line-height:1.2; max-height:60px; overflow:hidden;">${name}</div>
+                            <div style="font-size:10px; color:#666;">${id}</div>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2">ขนาด: 72mm x 24mm</p>
+                `,
+                showCancelButton: true,
+                confirmButtonText: '<i class="fa-solid fa-print"></i> ปริ้นสติกเกอร์',
+                confirmButtonColor: '#4f46e5',
+                cancelButtonText: 'ปิด'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const printWindow = window.open('', '', 'height=400,width=600');
+                    printWindow.document.write(`
+                        <html>
+                        <head>
+                            <title>Print Label</title>
+                            <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+                            <style>
+                                @page { size: 72mm 24mm; margin: 0; } /* Set paper size */
+                                body { margin: 0; padding: 0; font-family: 'Sarabun', sans-serif; }
+                                .sticker {
+                                    width: 72mm;
+                                    height: 24mm;
+                                    display: flex;
+                                    align-items: center;
+                                    padding: 1mm 2mm;
+                                    box-sizing: border-box;
+                                    overflow: hidden;
+                                    page-break-inside: avoid;
+                                }
+                                .qr-box {
+                                    width: 20mm;
+                                    height: 20mm;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    flex-shrink: 0;
+                                }
+                                .qr-box img {
+                                    width: 100%;
+                                    height: 100%;
+                                    object-fit: contain;
+                                }
+                                .info-box {
+                                    flex: 1;
+                                    padding-left: 2mm;
+                                    display: flex;
+                                    flex-direction: column;
+                                    justify-content: center;
+                                }
+                                .name {
+                                    font-size: 10pt;
+                                    font-weight: bold;
+                                    line-height: 1.1;
+                                    max-height: 14mm;
+                                    overflow: hidden;
+                                    word-break: break-word;
+                                }
+                                .id {
+                                    font-size: 7pt;
+                                    margin-top: 1mm;
+                                    color: #333;
+                                }
+                            </style>
+                        </head>
+                        <body onload="window.print();window.close()">
+                            <div class="sticker">
+                                <div class="qr-box">
+                                    <img src="${qrUrl}" />
+                                </div>
+                                <div class="info-box">
+                                    <div class="name">${name}</div>
+                                    <div class="id">ID: ${id}</div>
+                                </div>
+                            </div>
+                        </body>
+                        </html>
+                    `);
+                    printWindow.document.close();
+                }
+            });
+        }
 
-            const modal = document.getElementById('edit-modal');
+        function startScanner() {
+            const modal = document.getElementById('scanner-modal');
             modal.classList.remove('opacity-0', 'pointer-events-none');
             document.body.classList.add('modal-active');
-            modal.querySelector('.modal-container').classList.remove('scale-95');
-            modal.querySelector('.modal-container').classList.add('scale-100');
+
+            if(!html5QrcodeScanner) {
+                html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+                html5QrcodeScanner.render(onScanSuccess);
+            }
         }
 
-        function closeEditModal() {
-            const modal = document.getElementById('edit-modal');
+        function stopScanner() {
+            const modal = document.getElementById('scanner-modal');
             modal.classList.add('opacity-0', 'pointer-events-none');
             document.body.classList.remove('modal-active');
-            modal.querySelector('.modal-container').classList.remove('scale-100');
-            modal.querySelector('.modal-container').classList.add('scale-95');
+            
+            if(html5QrcodeScanner) {
+                html5QrcodeScanner.clear().then(() => {
+                    html5QrcodeScanner = null;
+                    document.getElementById('reader').innerHTML = '';
+                }).catch(error => { console.error("Failed to clear scanner", error); });
+            }
         }
 
-        async function submitEditItem(e) {
-            e.preventDefault();
-            const form = new FormData(e.target);
-            const data = Object.fromEntries(form.entries());
-            data.action = 'editItem';
-
-            // Handle Image File
-            const fileInput = document.getElementById('edit-image-file');
-            if (fileInput.files.length > 0) {
-                const file = fileInput.files[0];
-                data.imageFile = { type: file.type, base64: await toBase64(file) };
+        function onScanSuccess(decodedText, decodedResult) {
+            stopScanner(); // Stop scanning once found
+            const item = inventoryData.find(i => i.ID == decodedText);
+            if (item) {
+                addToCart(item);
+                // No need for alert here as addToCart shows toast
+            } else {
+                Swal.fire('ไม่พบสินค้า', `ไม่พบรหัสสินค้า: ${decodedText} ในระบบ`, 'error');
             }
+        }
 
+        // --- EDIT FUNCTIONALITY ---
+        function openEditModal(id) {
+            const item = inventoryData.find(i => i.ID === id); if (!item) return;
+            document.getElementById('edit-id').value = item.ID; document.getElementById('edit-name').value = item.Name; document.getElementById('edit-category').value = item.Category; document.getElementById('edit-existing-image').value = item.Image; document.getElementById('edit-price').value = item.Price; document.getElementById('edit-quantity').value = item.Quantity; document.getElementById('edit-details').value = item.Details;
+            document.getElementById('edit-image-file').value = ''; const preview = document.getElementById('edit-preview'); const placeholder = document.getElementById('edit-image-wrapper').querySelector('.upload-placeholder');
+            if (item.Image && item.Image.startsWith('http')) { preview.src = item.Image; preview.style.display = 'block'; placeholder.style.display = 'none'; } else { preview.style.display = 'none'; placeholder.style.display = 'block'; }
+            const modal = document.getElementById('edit-modal'); modal.classList.remove('opacity-0', 'pointer-events-none'); document.body.classList.add('modal-active'); modal.querySelector('.modal-container').classList.remove('scale-95'); modal.querySelector('.modal-container').classList.add('scale-100');
+        }
+        function closeEditModal() { const modal = document.getElementById('edit-modal'); modal.classList.add('opacity-0', 'pointer-events-none'); document.body.classList.remove('modal-active'); modal.querySelector('.modal-container').classList.remove('scale-100'); modal.querySelector('.modal-container').classList.add('scale-95'); }
+        async function submitEditItem(e) {
+            e.preventDefault(); const form = new FormData(e.target); const data = Object.fromEntries(form.entries()); data.action = 'editItem';
+            const fileInput = document.getElementById('edit-image-file'); if (fileInput.files.length > 0) { const file = fileInput.files[0]; data.imageFile = { type: file.type, base64: await toBase64(file) }; }
             Swal.fire({ title: 'กำลังบันทึก...', didOpen: () => Swal.showLoading() });
-            
-            fetch(CONFIG.WEB_APP_URL, { method: 'POST', body: JSON.stringify(data), mode: 'no-cors' })
-            .then(() => {
-                // Optimistic Update (For immediate UI feedback, though image might take time to propagate via Drive URL)
-                const index = inventoryData.findIndex(i => i.ID === data.id);
-                if (index !== -1) {
-                    inventoryData[index] = { ...inventoryData[index], Name: data.name, Category: data.category, Price: data.price, Quantity: data.quantity, Details: data.details };
-                    // We can't know the Drive URL immediately without response, so we wait for reload or keep old image visually
-                }
-                
-                closeEditModal();
-                Swal.fire({icon:'success', title:'แก้ไขเรียบร้อย', timer: 1500, showConfirmButton: false});
-                setTimeout(() => { loadInventoryData(); }, 2000); // Reload to get new image URL
-            })
-            .catch(() => Swal.fire('Error', 'การเชื่อมต่อล้มเหลว', 'error'));
+            fetch(CONFIG.WEB_APP_URL, { method: 'POST', body: JSON.stringify(data), mode: 'no-cors' }).then(() => { const index = inventoryData.findIndex(i => i.ID === data.id); if (index !== -1) { inventoryData[index] = { ...inventoryData[index], Name: data.name, Category: data.category, Price: data.price, Quantity: data.quantity, Details: data.details }; } closeEditModal(); Swal.fire({icon:'success', title:'แก้ไขเรียบร้อย', timer: 1500, showConfirmButton: false}); setTimeout(() => { loadInventoryData(); }, 2000); }).catch(() => Swal.fire('Error', 'การเชื่อมต่อล้มเหลว', 'error'));
         }
 
         // --- ADD Functions ---
         async function submitAddItem(e) {
-            e.preventDefault();
-            const form = new FormData(e.target);
-            const data = Object.fromEntries(form.entries());
-            data.action = 'addItem';
-
-            // Handle Image
-            const fileInput = document.getElementById('add-image-file');
-            if (fileInput.files.length > 0) {
-                const file = fileInput.files[0];
-                data.imageFile = { type: file.type, base64: await toBase64(file) };
-            }
-
+            e.preventDefault(); const form = new FormData(e.target); const data = Object.fromEntries(form.entries()); data.action = 'addItem';
+            const fileInput = document.getElementById('add-image-file'); if (fileInput.files.length > 0) { const file = fileInput.files[0]; data.imageFile = { type: file.type, base64: await toBase64(file) }; }
             Swal.fire({ title: 'กำลังบันทึก...', text: 'กำลังอัปโหลดรูปภาพ...', didOpen: () => Swal.showLoading() });
-            
-            fetch(CONFIG.WEB_APP_URL, { method: 'POST', body: JSON.stringify(data), mode: 'no-cors' }).then(() => {
-                Swal.fire({icon:'success', title:'สำเร็จ', timer: 1500, showConfirmButton: false});
-                e.target.reset();
-                // Reset Preview
-                document.getElementById('add-preview').style.display='none';
-                document.getElementById('add-image-wrapper').querySelector('.upload-placeholder').style.display='block';
-                
-                setTimeout(() => { loadInventoryData(); navTo('inventory'); }, 2000);
-            });
+            fetch(CONFIG.WEB_APP_URL, { method: 'POST', body: JSON.stringify(data), mode: 'no-cors' }).then(() => { Swal.fire({icon:'success', title:'สำเร็จ', timer: 1500, showConfirmButton: false}); e.target.reset(); document.getElementById('add-preview').style.display='none'; document.getElementById('add-image-wrapper').querySelector('.upload-placeholder').style.display='block'; setTimeout(() => { loadInventoryData(); navTo('inventory'); }, 2000); });
         }
 
         // --- WITHDRAW & CART ---
         function renderWithdrawGrid() {
-            const grid = document.getElementById('withdraw-grid');
-            const search = document.getElementById('withdraw-search').value.toLowerCase();
-            const empty = document.getElementById('withdraw-empty');
-            
-            grid.innerHTML = '';
-            const filtered = inventoryData.filter(item => item.Name.toLowerCase().includes(search) && parseInt(item.Quantity) > 0);
-
-            if(filtered.length === 0) { empty.classList.remove('hidden'); empty.classList.add('flex'); }
-            else { empty.classList.add('hidden'); empty.classList.remove('flex'); }
-
-            filtered.forEach(item => {
-                const img = item.Image && item.Image.startsWith('http') ? item.Image : `https://placehold.co/150?text=Item`;
-                grid.innerHTML += `<div onclick='addToCart(${JSON.stringify(item)})' class="bg-white rounded-xl shadow-sm border border-slate-100 p-3 cursor-pointer hover:shadow-md transition active:scale-95 group relative overflow-hidden h-full flex flex-col"><div class="absolute top-2 right-2 bg-slate-900/80 text-white text-[10px] px-2 py-1 rounded-md z-10">เหลือ ${item.Quantity}</div><div class="w-full aspect-square bg-slate-50 rounded-lg mb-3 overflow-hidden"><img src="${img}" class="w-full h-full object-cover"></div><h4 class="text-sm font-bold truncate">${item.Name}</h4><p class="text-[10px] text-slate-400 mb-2">${item.Category}</p><button class="w-full text-xs py-2 rounded-lg bg-indigo-50 text-indigo-600 font-bold group-hover:bg-indigo-600 group-hover:text-white transition">เพิ่ม</button></div>`;
-            });
+            const grid = document.getElementById('withdraw-grid'); const search = document.getElementById('withdraw-search').value.toLowerCase(); const empty = document.getElementById('withdraw-empty');
+            grid.innerHTML = ''; const filtered = inventoryData.filter(item => item.Name.toLowerCase().includes(search) && parseInt(item.Quantity) > 0);
+            if(filtered.length === 0) { empty.classList.remove('hidden'); empty.classList.add('flex'); } else { empty.classList.add('hidden'); empty.classList.remove('flex'); }
+            filtered.forEach(item => { const img = item.Image && item.Image.startsWith('http') ? item.Image : `https://placehold.co/150?text=Item`; grid.innerHTML += `<div onclick='addToCart(${JSON.stringify(item)})' class="bg-white rounded-xl shadow-sm border border-slate-100 p-3 cursor-pointer hover:shadow-md transition active:scale-95 group relative overflow-hidden h-full flex flex-col"><div class="absolute top-2 right-2 bg-slate-900/80 text-white text-[10px] px-2 py-1 rounded-md z-10">เหลือ ${item.Quantity}</div><div class="w-full aspect-square bg-slate-50 rounded-lg mb-3 overflow-hidden"><img src="${img}" class="w-full h-full object-cover"></div><h4 class="text-sm font-bold truncate">${item.Name}</h4><p class="text-[10px] text-slate-400 mb-2">${item.Category}</p><button class="w-full text-xs py-2 rounded-lg bg-indigo-50 text-indigo-600 font-bold group-hover:bg-indigo-600 group-hover:text-white transition">เพิ่ม</button></div>`; });
         }
         function addToCart(itemObj) {
-            const item = typeof itemObj === 'string' ? JSON.parse(itemObj) : itemObj;
-            const existing = cart.find(c => c.id === item.ID);
-            if(existing) { if(existing.qty < parseInt(item.Quantity)) existing.qty++; else return Swal.fire({icon:'warning', title:'สินค้าหมด', toast:true, position:'top', timer:1500, showConfirmButton:false}); } 
-            else { cart.push({ id: item.ID, name: item.Name, qty: 1, max: parseInt(item.Quantity), price: item.Price }); }
-            updateCartUI(); Swal.mixin({toast:true, position:'bottom-center', showConfirmButton:false, timer:1000, background:'#1e293b', color:'#fff'}).fire({icon:'success', title:`เพิ่ม "${item.Name}" แล้ว`});
+            const item = typeof itemObj === 'string' ? JSON.parse(itemObj) : itemObj; const existing = cart.find(c => c.id === item.ID);
+            if(existing) { if(existing.qty < parseInt(item.Quantity)) existing.qty++; else return Swal.fire({icon:'warning', title:'สินค้าหมด', toast:true, position:'top', timer:1500, showConfirmButton:false}); } else { cart.push({ id: item.ID, name: item.Name, qty: 1, max: parseInt(item.Quantity), price: item.Price }); } updateCartUI(); Swal.mixin({toast:true, position:'bottom-center', showConfirmButton:false, timer:1000, background:'#1e293b', color:'#fff'}).fire({icon:'success', title:`เพิ่ม "${item.Name}" แล้ว`});
         }
         function updateCartUI() {
             const container = document.getElementById('cart-items'); container.innerHTML = ''; let total = 0;
@@ -543,31 +617,18 @@
             const res = await Swal.fire({title:'ยืนยันการเบิก?', text:`โครงการ: ${project}`, icon:'question', showCancelButton:true, confirmButtonColor:'#4f46e5', confirmButtonText:'ยืนยัน'});
             if(res.isConfirmed) {
                 Swal.fire({title:'บันทึก...', didOpen:()=>Swal.showLoading()});
-                
-                // History
-                const record = { date: new Date().toLocaleString(), project, user, items: [...cart], id: 'TX-'+Date.now().toString().slice(-6) };
-                withdrawHistory.unshift(record); localStorage.setItem('withdrawHistory', JSON.stringify(withdrawHistory)); renderHistory();
-
+                const record = { date: new Date().toLocaleString(), project, user, items: [...cart], id: 'TX-'+Date.now().toString().slice(-6) }; withdrawHistory.unshift(record); localStorage.setItem('withdrawHistory', JSON.stringify(withdrawHistory)); renderHistory();
                 fetch(CONFIG.WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'withdraw', project, user, items:cart}), mode:'no-cors'});
-                
-                // Print
                 document.getElementById('print-project').innerText = project; document.getElementById('print-user').innerText = user; document.getElementById('print-date').innerText = new Date().toLocaleDateString('th-TH'); document.getElementById('print-ref').innerText = 'W-'+Date.now().toString().slice(-6);
                 const tbody = document.getElementById('print-items-body'); tbody.innerHTML = ''; cart.forEach((c,i)=>tbody.innerHTML+=`<tr><td style="border:1px solid #cbd5e1;padding:8px;text-align:center">${i+1}</td><td style="border:1px solid #cbd5e1;padding:8px">${c.name}</td><td style="border:1px solid #cbd5e1;padding:8px;text-align:center">${c.qty}</td></tr>`);
-                const el = document.getElementById('print-area'); el.style.display='block';
-                html2pdf().set({margin:0.5, filename:`Req_${project}.pdf`, image:{type:'jpeg',quality:0.98}, html2canvas:{scale:2}, jsPDF:{unit:'in',format:'a4'}}).from(el).save().then(()=>{ el.style.display='none'; });
-
-                cart=[]; updateCartUI(); document.getElementById('project-name').value=''; document.getElementById('withdrawer-name').value=''; if(isMobileCartOpen) toggleMobileCart();
-                Swal.fire({icon:'success', title:'เรียบร้อย', timer:1500, showConfirmButton:false});
+                const el = document.getElementById('print-area'); el.style.display='block'; html2pdf().set({margin:0.5, filename:`Req_${project}.pdf`, image:{type:'jpeg',quality:0.98}, html2canvas:{scale:2}, jsPDF:{unit:'in',format:'a4'}}).from(el).save().then(()=>{ el.style.display='none'; });
+                cart=[]; updateCartUI(); document.getElementById('project-name').value=''; document.getElementById('withdrawer-name').value=''; if(isMobileCartOpen) toggleMobileCart(); Swal.fire({icon:'success', title:'เรียบร้อย', timer:1500, showConfirmButton:false});
             }
         }
-
         function renderHistory() {
             const list = document.getElementById('history-list'); list.innerHTML = '';
             if(withdrawHistory.length===0) { list.innerHTML=`<div class="p-8 text-center text-slate-400 text-sm">ยังไม่มีประวัติ</div>`; return; }
-            withdrawHistory.forEach(h => {
-                const summary = h.items.map(i=>`${i.name} (${i.qty})`).join(', ');
-                list.innerHTML += `<div class="p-4 hover:bg-slate-50 transition group"><div class="flex justify-between items-start mb-1"><span class="font-bold text-sm">${h.project}</span><span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500">${h.date}</span></div><div class="text-xs text-slate-500 mb-2 truncate"><i class="fa-solid fa-user mr-1"></i> ${h.user}</div><div class="text-xs text-indigo-600 bg-indigo-50 p-2 rounded-lg line-clamp-1">${summary}</div></div>`;
-            });
+            withdrawHistory.forEach(h => { const summary = h.items.map(i=>`${i.name} (${i.qty})`).join(', '); list.innerHTML += `<div class="p-4 hover:bg-slate-50 transition group"><div class="flex justify-between items-start mb-1"><span class="font-bold text-sm">${h.project}</span><span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500">${h.date}</span></div><div class="text-xs text-slate-500 mb-2 truncate"><i class="fa-solid fa-user mr-1"></i> ${h.user}</div><div class="text-xs text-indigo-600 bg-indigo-50 p-2 rounded-lg line-clamp-1">${summary}</div></div>`; });
         }
         function clearHistory() { Swal.fire({title:'ล้างประวัติ?',icon:'warning',showCancelButton:true,confirmButtonColor:'#ef4444',confirmButtonText:'ลบ'}).then((r)=>{if(r.isConfirmed){withdrawHistory=[];localStorage.removeItem('withdrawHistory');renderHistory();}})}
     </script>
