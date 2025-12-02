@@ -71,7 +71,7 @@
             font-weight: 600;
         }
         
-        .mobile-drawer { position: fixed; bottom: 64px; left: 0; right: 0; height: 85vh; background: white; z-index: 40; border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem; box-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.1); border-top: 1px solid #e2e8f0; display: flex; flex-direction: column; transform: translateY(120%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        .mobile-drawer { position: fixed; bottom: 64px; left: 0; right: 0; height: 90vh; background: white; z-index: 40; border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem; box-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.1); border-top: 1px solid #e2e8f0; display: flex; flex-direction: column; transform: translateY(120%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
         .mobile-drawer.open { transform: translateY(0); }
         .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 30; opacity: 0; pointer-events: none; transition: opacity 0.3s; backdrop-filter: blur(2px); }
         .backdrop.open { opacity: 1; pointer-events: auto; }
@@ -817,15 +817,8 @@
                         icon: 'success',
                         title: 'ทำรายการสำเร็จ',
                         text: 'บันทึกข้อมูลและตัดสตอกเรียบร้อยแล้ว',
-                        showCancelButton: true,
-                        confirmButtonText: '<i class="fa-solid fa-file-pdf"></i> ดาวน์โหลดใบเบิก PDF',
-                        cancelButtonText: 'ปิด',
-                        confirmButtonColor: '#4f46e5',
-                        cancelButtonColor: '#64748b'
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            generatePDF(project, user, currentCart, record.id, record.date);
-                        }
+                        timer: 1500,
+                        showConfirmButton: false
                     });
                 }
             } catch (error) {
