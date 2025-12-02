@@ -71,7 +71,7 @@
             font-weight: 600;
         }
         
-        .mobile-drawer { position: fixed; bottom: 64px; left: 0; right: 0; height: 90vh; background: white; z-index: 40; border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem; box-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.1); border-top: 1px solid #e2e8f0; display: flex; flex-direction: column; transform: translateY(120%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        .mobile-drawer { position: fixed; bottom: 64px; left: 0; right: 0; height: 85vh; background: white; z-index: 40; border-top-left-radius: 1.5rem; border-top-right-radius: 1.5rem; box-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.1); border-top: 1px solid #e2e8f0; display: flex; flex-direction: column; transform: translateY(120%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
         .mobile-drawer.open { transform: translateY(0); }
         .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 30; opacity: 0; pointer-events: none; transition: opacity 0.3s; backdrop-filter: blur(2px); }
         .backdrop.open { opacity: 1; pointer-events: auto; }
@@ -90,9 +90,6 @@
         #scanner-modal { z-index: 60; }
         #reader { width: 100%; border-radius: 1rem; overflow: hidden; background: #000; }
         #reader video { object-fit: cover; border-radius: 1rem; width: 100% !important; height: 100% !important; }
-        
-        /* Signature Pad Fix */
-        #signature-pad { touch-action: none; background-color: #fff; cursor: crosshair; }
     </style>
 </head>
 <body class="text-slate-800 h-screen flex flex-col md:flex-row overflow-hidden bg-slate-50">
@@ -231,7 +228,7 @@
                             <div id="withdraw-empty" class="hidden flex-col items-center justify-center h-64 text-slate-400"><i class="fa-solid fa-magnifying-glass-minus text-5xl mb-3 opacity-50"></i><p>ไม่พบสินค้าที่ค้นหา</p></div>
                         </div>
                         
-                        <!-- Cart Panel with Signature -->
+                        <!-- Cart Panel (No Signature) -->
                         <div id="cart-panel" class="mobile-drawer md:mobile-drawer-reset md:w-96 bg-white md:rounded-2xl md:shadow-xl md:border md:border-slate-100 flex flex-col md:h-full md:relative md:z-auto md:transform-none md:bottom-auto">
                             <div class="p-5 border-b border-slate-100 bg-slate-50 md:rounded-t-2xl flex justify-between items-center"><div><h3 class="font-bold text-slate-800 flex items-center gap-2 text-lg"><i class="fa-solid fa-cart-shopping text-indigo-600"></i> รายการเบิก</h3></div><button onclick="toggleMobileCart()" class="md:hidden w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-500 flex items-center justify-center shadow-sm"><i class="fa-solid fa-xmark"></i></button></div>
                             <div class="p-5 space-y-4 flex-shrink-0 bg-white z-10">
@@ -241,15 +238,6 @@
                             
                             <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50 min-h-[100px]"></div>
                             
-                            <!-- Signature Pad Section -->
-                            <div class="p-4 bg-white border-t border-slate-100">
-                                <label class="block text-xs font-bold text-slate-500 mb-2">เซ็นชื่อผู้เบิก (Signature)</label>
-                                <div class="relative border border-slate-300 rounded-lg bg-gray-50 overflow-hidden">
-                                    <canvas id="signature-pad" class="w-full h-24 touch-none"></canvas>
-                                    <button onclick="clearSignature()" class="absolute top-1 right-1 bg-white/80 hover:bg-white text-slate-500 hover:text-red-500 text-xs px-2 py-1 rounded shadow-sm">ล้าง</button>
-                                </div>
-                            </div>
-
                             <div class="p-5 border-t border-slate-100 bg-white md:rounded-b-2xl shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.02)] z-10 pb-8 md:pb-5">
                                 <div class="flex justify-between mb-4 text-sm font-semibold text-slate-700"><span>รวมรายการ</span><span id="cart-total-qty" class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-md">0 ชิ้น</span></div>
                                 <button onclick="confirmWithdraw()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg transition transform active:scale-[0.98] flex justify-center items-center gap-3"><span>ยืนยันการเบิก</span> <i class="fa-solid fa-arrow-right"></i></button>
@@ -359,16 +347,10 @@
         }
         let html5QrCode = null;
         
-        // Signature Vars
-        let signaturePad, signatureCtx;
-        let isDrawing = false;
-        let resizeSignaturePad;
-
         document.addEventListener('DOMContentLoaded', () => { 
             loadInventoryData(); 
             navTo('dashboard'); 
             renderHistory(); 
-            initSignaturePad();
         });
 
         // ================= NAVIGATION =================
@@ -394,9 +376,6 @@
             if(isMobileCartOpen) { 
                 panel.classList.add('open'); 
                 backdrop.classList.add('open'); 
-                setTimeout(() => {
-                    if(typeof resizeSignaturePad === 'function') resizeSignaturePad();
-                }, 300); 
             }
             else { panel.classList.remove('open'); backdrop.classList.remove('open'); }
         }
@@ -418,76 +397,6 @@
             const reader = new FileReader(); reader.readAsDataURL(file);
             reader.onload = () => resolve(reader.result); reader.onerror = error => reject(error);
         });
-
-        // ================= SIGNATURE PAD =================
-        function initSignaturePad() {
-            const canvas = document.getElementById('signature-pad');
-            signatureCtx = canvas.getContext('2d');
-            
-            resizeSignaturePad = function() {
-                const rect = canvas.getBoundingClientRect();
-                if (rect.width > 0 && rect.height > 0) {
-                    // Save content if needed, but clearing is standard on resize
-                    canvas.width = rect.width;
-                    canvas.height = rect.height;
-                }
-            };
-            
-            window.addEventListener('resize', resizeSignaturePad);
-            setTimeout(resizeSignaturePad, 500);
-
-            const startDrawing = (e) => {
-                isDrawing = true;
-                signatureCtx.beginPath();
-                const { offsetX, offsetY } = getCoordinates(e, canvas);
-                signatureCtx.moveTo(offsetX, offsetY);
-            };
-            const draw = (e) => {
-                if (!isDrawing) return;
-                const { offsetX, offsetY } = getCoordinates(e, canvas);
-                signatureCtx.lineWidth = 2;
-                signatureCtx.lineCap = 'round';
-                signatureCtx.strokeStyle = '#000';
-                signatureCtx.lineTo(offsetX, offsetY);
-                signatureCtx.stroke();
-            };
-            const stopDrawing = () => { isDrawing = false; };
-
-            canvas.addEventListener('mousedown', startDrawing);
-            canvas.addEventListener('mousemove', draw);
-            canvas.addEventListener('mouseup', stopDrawing);
-            canvas.addEventListener('mouseout', stopDrawing);
-            
-            canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDrawing(e); });
-            canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); });
-            canvas.addEventListener('touchend', (e) => { e.preventDefault(); stopDrawing(); });
-        }
-
-        function getCoordinates(e, canvas) {
-            let offsetX, offsetY;
-            if (e.touches) {
-                const rect = canvas.getBoundingClientRect();
-                offsetX = e.touches[0].clientX - rect.left;
-                offsetY = e.touches[0].clientY - rect.top;
-            } else {
-                offsetX = e.offsetX;
-                offsetY = e.offsetY;
-            }
-            return { offsetX, offsetY };
-        }
-
-        function clearSignature() {
-            const canvas = document.getElementById('signature-pad');
-            signatureCtx.clearRect(0, 0, canvas.width, canvas.height);
-        }
-
-        function getSignatureImage() {
-            const canvas = document.getElementById('signature-pad');
-            const blank = document.createElement('canvas');
-            blank.width = canvas.width; blank.height = canvas.height;
-            if (canvas.toDataURL() === blank.toDataURL()) return null;
-            return canvas.toDataURL('image/png');
-        }
 
         // ================= DATA LOADING =================
         async function loadInventoryData() {
@@ -861,7 +770,7 @@
         function downloadPDFHistory(index) {
             const h = withdrawHistory[index];
             if (!h) return;
-            generatePDF(h.project, h.user, h.items, h.id, h.date, h.signature);
+            generatePDF(h.project, h.user, h.items, h.id, h.date);
         }
 
         async function confirmWithdraw() {
@@ -869,9 +778,6 @@
                 const project = document.getElementById('project-name').value, user = document.getElementById('withdrawer-name').value;
                 if(cart.length === 0 || !project || !user) return Swal.fire({icon:'warning', title:'ข้อมูลไม่ครบ'});
                 
-                const signature = getSignatureImage();
-                if(!signature) return Swal.fire({icon:'warning', title:'กรุณาเซ็นชื่อ', text: 'โปรดเซ็นชื่อในช่องลายเซ็นก่อนยืนยัน'});
-
                 const res = await Swal.fire({title:'ยืนยันการเบิก?', text:`โครงการ: ${project}`, icon:'question', showCancelButton:true, confirmButtonColor:'#4f46e5', confirmButtonText:'ยืนยัน'});
                 
                 if(res.isConfirmed) {
@@ -887,7 +793,7 @@
 
                     Swal.fire({title:'กำลังบันทึก...', didOpen:()=>Swal.showLoading()});
                     
-                    const record = { date: new Date().toLocaleString(), project, user, items: [...cart], id: 'TX-'+Date.now().toString().slice(-6), signature: signature }; 
+                    const record = { date: new Date().toLocaleString(), project, user, items: [...cart], id: 'TX-'+Date.now().toString().slice(-6) }; 
                     
                     // Safe LocalStorage Save
                     try {
@@ -903,9 +809,8 @@
                     fetch(CONFIG.WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'withdraw', project, user, items:cart}), mode:'no-cors'}).catch(e => console.log('Fetch error', e));
                     
                     const currentCart = [...cart];
-                    const currentSignature = signature;
                     
-                    cart=[]; updateCartUI(); document.getElementById('project-name').value=''; document.getElementById('withdrawer-name').value=''; clearSignature();
+                    cart=[]; updateCartUI(); document.getElementById('project-name').value=''; document.getElementById('withdrawer-name').value=''; 
                     if(isMobileCartOpen) toggleMobileCart(); 
                     
                     Swal.fire({
@@ -919,7 +824,7 @@
                         cancelButtonColor: '#64748b'
                     }).then((result) => {
                         if (result.isConfirmed) {
-                            generatePDF(project, user, currentCart, record.id, record.date, currentSignature);
+                            generatePDF(project, user, currentCart, record.id, record.date);
                         }
                     });
                 }
@@ -952,7 +857,7 @@
         }
         function clearHistory() { Swal.fire({title:'ล้างประวัติ?',icon:'warning',showCancelButton:true,confirmButtonColor:'#ef4444',confirmButtonText:'ลบ'}).then((r)=>{if(r.isConfirmed){withdrawHistory=[];localStorage.removeItem('withdrawHistory');renderHistory();}})}
 
-        function generatePDF(project, user, items, ref, dateStr, signature) {
+        function generatePDF(project, user, items, ref, dateStr) {
             const element = document.createElement('div');
             element.style.padding = '40px';
             element.style.fontFamily = "'Sarabun', sans-serif";
@@ -967,9 +872,6 @@
                     <td style="border:1px solid #cbd5e1;padding:8px;text-align:center">${c.qty}</td>
                 </tr>`;
             });
-
-            // Signature Image Element
-            const sigImg = signature ? `<img src="${signature}" style="max-height: 40px; display:block; margin: 0 auto;">` : '';
 
             element.innerHTML = `
                 <div style="display:flex;justify-content:space-between;margin-bottom:30px;border-bottom:3px solid #1e293b;padding-bottom:20px;">
@@ -987,7 +889,6 @@
                 <div style="display:flex;justify-content:space-between;margin-top:80px;">
                     <div style="text-align:center;width:40%;">
                         <div style="height:50px; display:flex; align-items:flex-end; justify-content:center; margin-bottom:5px;">
-                            ${sigImg}
                         </div>
                         <div style="border-bottom:1px solid #94a3b8;height:1px;margin-bottom:10px;"></div>
                         <div style="font-weight:bold;">ผู้เบิก (Requester)</div>
