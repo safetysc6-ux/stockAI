@@ -442,7 +442,7 @@
 
         // --- QR CODE FUNCTIONS ---
         function viewQRCode(id, name) {
-            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}`; // Optimize size
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}`;
             
             // Show preview first
             Swal.fire({
@@ -455,8 +455,8 @@
                             <div style="font-size:10px; color:#666;">${id}</div>
                         </div>
                     </div>
-                    <p class="text-xs text-gray-500 mt-2">ขนาด: 0.94 นิ้ว (24mm) x 72mm</p>
-                    <p class="text-xs text-red-500 mt-1">** อย่าลืมเลือกขนาดกระดาษใน Driver เป็น 24mm x 72mm **</p>
+                    <p class="text-xs text-gray-500 mt-2">ขนาด: 24mm x 72mm</p>
+                    <p class="text-xs text-red-500 mt-1">** หากกดแล้วเงียบ ให้ตรวจสอบ Pop-up Blocker **</p>
                 `,
                 showCancelButton: true,
                 confirmButtonText: '<i class="fa-solid fa-print"></i> ปริ้นสติกเกอร์',
@@ -465,13 +465,19 @@
             }).then((result) => {
                 if (result.isConfirmed) {
                     const printWindow = window.open('', '', 'height=400,width=600');
+                    
+                    if (!printWindow) {
+                        Swal.fire('แจ้งเตือน', 'Pop-up ถูกบล็อก! กรุณาอนุญาต Pop-up สำหรับเว็บไซต์นี้เพื่อพิมพ์', 'error');
+                        return;
+                    }
+
                     printWindow.document.write(`
                         <html>
                         <head>
                             <title>Print Label</title>
                             <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
                             <style>
-                                @page { size: 72mm 24mm; margin: 0; } /* ปรับขนาดให้ตรงกับ 0.94 นิ้ว (24mm) */
+                                @page { size: 72mm 24mm; margin: 0; }
                                 body { margin: 0; padding: 0; font-family: 'Sarabun', sans-serif; }
                                 .sticker {
                                     width: 72mm;
@@ -495,6 +501,7 @@
                                     width: 100%;
                                     height: 100%;
                                     object-fit: contain;
+                                    image-rendering: pixelated;
                                 }
                                 .info-box {
                                     flex: 1;
@@ -502,9 +509,10 @@
                                     display: flex;
                                     flex-direction: column;
                                     justify-content: center;
+                                    overflow: hidden;
                                 }
                                 .name {
-                                    font-size: 10pt; /* ปรับขนาดฟอนต์ให้พอดีกับความสูง 24mm */
+                                    font-size: 10pt;
                                     font-weight: bold;
                                     line-height: 1.1;
                                     max-height: 14mm;
@@ -514,14 +522,14 @@
                                 .id {
                                     font-size: 7pt;
                                     margin-top: 1mm;
-                                    color: #333;
+                                    color: #000;
                                 }
                             </style>
                         </head>
-                        <body onload="window.print();window.close()">
+                        <body>
                             <div class="sticker">
                                 <div class="qr-box">
-                                    <img src="${qrUrl}" />
+                                    <img src="${qrUrl}" onload="setTimeout(function(){ window.print(); window.close(); }, 1000)" onerror="alert('โหลดภาพไม่สำเร็จ')" />
                                 </div>
                                 <div class="info-box">
                                     <div class="name">${name}</div>
