@@ -455,7 +455,7 @@
                             <div style="font-size:10px; color:#666;">${id}</div>
                         </div>
                     </div>
-                    <p class="text-xs text-gray-500 mt-2">ขนาด: 72mm x 24mm</p>
+                    <p class="text-xs text-gray-500 mt-2">ขนาด: 24mm x 72mm</p>
                 `,
                 showCancelButton: true,
                 confirmButtonText: '<i class="fa-solid fa-print"></i> ปริ้นสติกเกอร์',
@@ -470,7 +470,7 @@
                             <title>Print Label</title>
                             <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
                             <style>
-                                @page { size: 72mm 24mm; margin: 0; } /* Set paper size */
+                                @page { size: 72mm 24mm; margin: 0; } /* Set paper size: Width 72mm, Height 24mm (Landscape) */
                                 body { margin: 0; padding: 0; font-family: 'Sarabun', sans-serif; }
                                 .sticker {
                                     width: 72mm;
@@ -517,10 +517,10 @@
                                 }
                             </style>
                         </head>
-                        <body onload="window.print();window.close()">
+                        <body>
                             <div class="sticker">
                                 <div class="qr-box">
-                                    <img src="${qrUrl}" />
+                                    <img src="${qrUrl}" onload="window.print();window.close()" />
                                 </div>
                                 <div class="info-box">
                                     <div class="name">${name}</div>
