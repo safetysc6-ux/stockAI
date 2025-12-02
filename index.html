@@ -428,8 +428,9 @@
             // Try to extract ID from common Google Drive URL patterns
             const match = url.match(/[-\w]{25,}/);
             if (match && (url.includes('drive.google.com') || url.includes('docs.google.com'))) {
-                // Use a direct serving link that bypasses preview pages
-                return `https://lh3.googleusercontent.com/d/${match[0]}`;
+                // Use thumbnail link which is more reliable for display than direct download links
+                // sz=w400 requests a width of 400px
+                return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w400`;
             }
             return url;
         }
@@ -457,7 +458,7 @@
                 // Desktop
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-50 transition border-b border-slate-50">
-                        <td class="p-4 flex items-center gap-3"><img src="${img}" class="w-10 h-10 rounded-lg bg-slate-200 object-cover" referrerpolicy="no-referrer"><span class="font-medium">${item.Name}</span></td>
+                        <td class="p-4 flex items-center gap-3"><img src="${img}" class="w-10 h-10 rounded-lg bg-slate-200 object-cover" referrerpolicy="no-referrer" onerror="this.src='https://placehold.co/100?text=Error'"><span class="font-medium">${item.Name}</span></td>
                         <td class="p-4"><span class="px-2 py-1 bg-slate-100 rounded text-xs">${item.Category}</span></td>
                         <td class="p-4">${typeLabel}</td>
                         <td class="p-4 text-right font-mono">${parseFloat(item.Price).toLocaleString()}</td>
@@ -471,7 +472,7 @@
                 // Mobile
                 mobileList.innerHTML += `
                     <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex gap-4">
-                        <img src="${img}" class="w-16 h-16 rounded-xl bg-slate-50 object-cover flex-shrink-0" referrerpolicy="no-referrer">
+                        <img src="${img}" class="w-16 h-16 rounded-xl bg-slate-50 object-cover flex-shrink-0" referrerpolicy="no-referrer" onerror="this.src='https://placehold.co/100?text=Error'">
                         <div class="flex-1 min-w-0">
                             <div class="flex justify-between items-start">
                                 <h4 class="font-bold truncate pr-2 text-sm">${item.Name}</h4>
@@ -661,7 +662,7 @@
                 <div ${clickAction} class="bg-white rounded-xl shadow-sm border border-slate-100 p-3 cursor-pointer hover:shadow-md transition active:scale-95 group relative overflow-hidden h-full flex flex-col">
                     ${badge}
                     <div class="absolute top-2 right-2 bg-slate-900/80 text-white text-[10px] px-2 py-1 rounded-md z-10">เหลือ ${item.Quantity}</div>
-                    <div class="w-full aspect-square bg-slate-50 rounded-lg mb-3 overflow-hidden"><img src="${img}" class="w-full h-full object-cover" referrerpolicy="no-referrer"></div>
+                    <div class="w-full aspect-square bg-slate-50 rounded-lg mb-3 overflow-hidden"><img src="${img}" class="w-full h-full object-cover" referrerpolicy="no-referrer" onerror="this.src='https://placehold.co/150?text=Error'"></div>
                     <h4 class="text-sm font-bold truncate">${item.Name}</h4>
                     <p class="text-[10px] text-slate-400 mb-2">${item.Category}</p>
                     <button class="w-full text-xs py-2 rounded-lg transition flex items-center justify-center gap-1 ${buttonClass}">
