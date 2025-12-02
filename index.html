@@ -455,12 +455,12 @@
                             <div style="font-size:10px; color:#666;">${id}</div>
                         </div>
                     </div>
-                    <p class="text-xs text-gray-500 mt-2">ขนาด: 24mm x 72mm (Safe Zone)</p>
+                    <p class="text-xs text-gray-500 mt-2">ขนาด: 24mm x 72mm (Brother Optimized)</p>
                     <div class="text-left text-xs text-red-500 mt-2 bg-red-50 p-2 rounded">
-                        <b>คำแนะนำหากปริ้นไม่ออก:</b><br>
-                        1. ตั้งค่า Driver กระดาษเป็น 24mm x 72mm<br>
-                        2. ตั้งค่า Margins ในหน้า Preview เป็น "None" หรือ "Minimum"<br>
-                        3. ปิด Header/Footer ในหน้า Preview
+                        <b>สำหรับ Brother P900W:</b><br>
+                        1. ตั้งค่า Margins เป็น <b>"None"</b><br>
+                        2. ตรวจสอบว่าใส่กระดาษขนาด 24mm (0.94")<br>
+                        3. หากใช้เทปต่อเนื่อง ให้สร้าง Custom Size: 72mm x 24mm ใน Driver
                     </div>
                 `,
                 showCancelButton: true,
@@ -469,7 +469,7 @@
                 cancelButtonText: 'ปิด'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    const printWindow = window.open('', '_blank', 'height=400,width=600');
+                    const printWindow = window.open('', '_blank', 'width=800,height=600');
                     
                     if (!printWindow) {
                         Swal.fire('แจ้งเตือน', 'Pop-up ถูกบล็อก! กรุณาอนุญาต Pop-up', 'error');
@@ -483,7 +483,10 @@
                             <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
                             <style>
                                 /* บังคับขนาดหน้ากระดาษและลบขอบอัตโนมัติ */
-                                @page { size: 72mm 24mm; margin: 0; }
+                                @page { 
+                                    size: 72mm 24mm; 
+                                    margin: 0mm; /* สำคัญมากสำหรับ Brother */
+                                }
                                 
                                 body { 
                                     margin: 0; 
@@ -492,44 +495,39 @@
                                     background: #fff;
                                     width: 72mm;
                                     height: 24mm;
-                                    overflow: hidden; /* ป้องกันเนื้อหาล้น */
+                                    display: flex;
+                                    justify-content: center; /* จัดกึ่งกลางแนวนอน */
+                                    align-items: center;     /* จัดกึ่งกลางแนวตั้ง */
+                                    overflow: hidden;
                                 }
                                 
-                                .sticker-container {
-                                    width: 72mm;
-                                    height: 24mm;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                }
-
                                 .sticker {
-                                    width: 70mm; /* Safe Zone: ลดขนาดลง 2mm */
-                                    height: 22mm; /* Safe Zone: ลดขนาดลง 2mm */
+                                    width: 68mm; /* ลดขนาดลงเล็กน้อย (Safe Zone) เพื่อไม่ให้ชนขอบ Hardware Margin */
+                                    height: 20mm; 
                                     display: flex;
                                     align-items: center;
-                                    /* box-sizing: border-box; ไม่ใช้ border เพื่อป้องกันขนาดเพี้ยน */
+                                    /* border: 1px dashed #ccc; เส้นประสำหรับ test layout (จะซ่อนตอนปริ้น) */
                                 }
                                 
                                 .qr-box {
-                                    width: 20mm;
-                                    height: 20mm;
+                                    width: 18mm;
+                                    height: 18mm;
                                     display: flex;
                                     align-items: center;
                                     justify-content: center;
                                     flex-shrink: 0;
+                                    margin-right: 2mm;
                                 }
                                 
                                 .qr-box img {
                                     width: 100%;
                                     height: 100%;
                                     object-fit: contain;
-                                    display: block; /* แก้บั๊กขอบภาพ */
+                                    image-rendering: pixelated; /* ให้ QR คมชัด */
                                 }
                                 
                                 .info-box {
                                     flex: 1;
-                                    padding-left: 2mm;
                                     display: flex;
                                     flex-direction: column;
                                     justify-content: center;
@@ -538,29 +536,33 @@
                                 }
                                 
                                 .name {
-                                    font-size: 10pt;
+                                    font-size: 11pt; /* ขนาดตัวอักษร */
                                     font-weight: bold;
                                     line-height: 1.1;
-                                    max-height: 13mm;
+                                    max-height: 14mm;
                                     overflow: hidden;
                                     word-break: break-word;
+                                    white-space: normal;
                                 }
                                 
                                 .id {
-                                    font-size: 7pt;
+                                    font-size: 8pt;
                                     margin-top: 1mm;
                                     color: #000;
+                                    font-family: monospace;
                                 }
 
                                 /* ซ่อนปุ่มเมื่อสั่งปริ้น */
                                 @media print {
                                     .no-print { display: none !important; }
+                                    .sticker { border: none !important; } /* ซ่อนเส้นขอบตอนปริ้นจริง */
                                     body { -webkit-print-color-adjust: exact; }
                                 }
 
                                 .no-print-container {
                                     position: fixed; bottom: 10px; width: 100%; text-align: center; 
                                     background: rgba(255,255,255,0.95); padding: 15px; border-top: 1px solid #ddd;
+                                    left: 0;
                                 }
                                 .btn {
                                     background: #4f46e5; color: white; padding: 10px 20px; border: none; 
@@ -569,21 +571,19 @@
                             </style>
                         </head>
                         <body>
-                            <div class="sticker-container">
-                                <div class="sticker">
-                                    <div class="qr-box">
-                                        <img src="${qrUrl}" id="qrImg" />
-                                    </div>
-                                    <div class="info-box">
-                                        <div class="name">${name}</div>
-                                        <div class="id">ID: ${id}</div>
-                                    </div>
+                            <div class="sticker">
+                                <div class="qr-box">
+                                    <img src="${qrUrl}" id="qrImg" />
+                                </div>
+                                <div class="info-box">
+                                    <div class="name">${name}</div>
+                                    <div class="id">${id}</div>
                                 </div>
                             </div>
                             
                             <div class="no-print no-print-container">
                                 <div style="margin-bottom:10px; color:#ef4444; font-weight:bold; font-size:14px;">
-                                    ⚠️ หากปริ้นไม่ออก ให้ตั้งค่า Margins เป็น "None"
+                                    ⚠️ ตั้งค่า Margins เป็น "None" และเลือกขนาดกระดาษให้ตรง (72x24mm)
                                 </div>
                                 <button class="btn" onclick="window.print()">🖨️ สั่งปริ้น</button>
                                 <button class="btn" onclick="window.close()" style="background:#64748b;">ปิด</button>
@@ -593,9 +593,8 @@
                                 const img = document.getElementById('qrImg');
                                 
                                 function doPrint() {
-                                    // Delay นานขึ้นเล็กน้อยเพื่อให้ Render สมบูรณ์
                                     setTimeout(() => {
-                                        window.focus(); // สำคัญมากสำหรับ Chrome
+                                        window.focus();
                                         window.print();
                                     }, 800);
                                 }
