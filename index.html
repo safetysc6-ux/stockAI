@@ -322,8 +322,8 @@
 
     <script>
         const CONFIG = {
-            CSV_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSa3BzLpNVCfivB67ZqOVNZPHNF1M-75GMfOLfSWs3A3pIH1MTr5A8TI7mqHS6i-VB10l6caAFHshX0/pub?gid=0&single=true&output=csv',
-            WEB_APP_URL: 'https://script.google.com/macros/s/AKfycby_M5QWZv4jd2jbezXjBf1D11ICVmSgGnR65FdNudgE-0x2RABnV5K-NIQ0HpKDBDdw/exec' 
+            // !!! IMPORTANT: CHANGE THIS TO YOUR DEPLOYED WEB APP URL !!!
+            WEB_APP_URL: 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE' 
         };
 
         let inventoryData = [];
@@ -332,7 +332,7 @@
         let isMobileCartOpen = false;
         let selectedCategory = 'All';
         let withdrawHistory = JSON.parse(localStorage.getItem('withdrawHistory')) || [];
-        let html5QrCode = null; // Changed from html5QrcodeScanner to direct class
+        let html5QrCode = null;
 
         document.addEventListener('DOMContentLoaded', () => { loadInventoryData(); navTo('dashboard'); renderHistory(); });
 
@@ -380,14 +380,24 @@
         async function loadInventoryData() {
             document.getElementById('global-skeleton').classList.remove('hidden');
             document.getElementById('app-content').classList.add('hidden');
-            if (CONFIG.CSV_URL.includes('YOUR_GOOGLE')) {
-                inventoryData = [{ID:'101', Name:'สว่านไร้สาย Bosch', Category:'เครื่องมือช่าง', Type:'withdrawable', Image:'https://placehold.co/200', Price:2500, Quantity:12, Details:'18V'}];
+            
+            try {
+                // Fetch from Web App URL with action=getInventory
+                const response = await fetch(CONFIG.WEB_APP_URL + '?action=getInventory');
+                const data = await response.json();
+                
+                // Filter valid items (ensure ID and Name exist)
+                inventoryData = data.filter(item => item.Name && item.ID);
                 finishLoading();
-            } else {
-                Papa.parse(CONFIG.CSV_URL, {
-                    download: true, header: true,
-                    complete: function(results) { inventoryData = results.data.filter(item => item.Name && item.ID); finishLoading(); }
-                });
+            } catch (error) {
+                console.error("Error loading inventory:", error);
+                
+                if (CONFIG.WEB_APP_URL.includes('YOUR_GOOGLE')) {
+                     inventoryData = [{ID:'101', Name:'สว่านไร้สาย Bosch', Category:'เครื่องมือช่าง', Type:'withdrawable', Image:'https://placehold.co/200', Price:2500, Quantity:12, Details:'18V'}];
+                     finishLoading();
+                } else {
+                    Swal.fire('Error', 'ไม่สามารถโหลดข้อมูลสินค้าได้', 'error');
+                }
             }
         }
 
@@ -428,9 +438,8 @@
             // Try to extract ID from common Google Drive URL patterns
             const match = url.match(/[-\w]{25,}/);
             if (match && (url.includes('drive.google.com') || url.includes('docs.google.com'))) {
-                // Use thumbnail link which is more reliable for display than direct download links
-                // sz=w400 requests a width of 400px
-                return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w400`;
+                // Use a direct serving link that bypasses preview pages
+                return `https://lh3.googleusercontent.com/d/${match[0]}`;
             }
             return url;
         }
@@ -458,7 +467,7 @@
                 // Desktop
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-50 transition border-b border-slate-50">
-                        <td class="p-4 flex items-center gap-3"><img src="${img}" class="w-10 h-10 rounded-lg bg-slate-200 object-cover" referrerpolicy="no-referrer" onerror="this.src='https://placehold.co/100?text=Error'"><span class="font-medium">${item.Name}</span></td>
+                        <td class="p-4 flex items-center gap-3"><img src="${img}" class="w-10 h-10 rounded-lg bg-slate-200 object-cover" referrerpolicy="no-referrer"><span class="font-medium">${item.Name}</span></td>
                         <td class="p-4"><span class="px-2 py-1 bg-slate-100 rounded text-xs">${item.Category}</span></td>
                         <td class="p-4">${typeLabel}</td>
                         <td class="p-4 text-right font-mono">${parseFloat(item.Price).toLocaleString()}</td>
@@ -466,14 +475,13 @@
                         <td class="p-4 text-center flex items-center justify-center gap-2">
                             <button onclick="viewQRCode('${item.ID}', '${item.Name}')" class="text-slate-500 hover:text-slate-700 bg-slate-100 p-2 rounded-lg transition"><i class="fa-solid fa-qrcode"></i></button>
                             <button onclick="openEditModal('${item.ID}')" class="text-amber-500 hover:text-amber-700 bg-amber-50 p-2 rounded-lg transition"><i class="fa-solid fa-pen"></i> แก้ไข</button>
-                            <button onclick="deleteItem('${item.ID}')" class="text-rose-500 hover:text-rose-700 bg-rose-50 p-2 rounded-lg transition" title="ลบ"><i class="fa-solid fa-trash"></i></button>
                         </td>
                     </tr>`;
 
                 // Mobile
                 mobileList.innerHTML += `
                     <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex gap-4">
-                        <img src="${img}" class="w-16 h-16 rounded-xl bg-slate-50 object-cover flex-shrink-0" referrerpolicy="no-referrer" onerror="this.src='https://placehold.co/100?text=Error'">
+                        <img src="${img}" class="w-16 h-16 rounded-xl bg-slate-50 object-cover flex-shrink-0" referrerpolicy="no-referrer">
                         <div class="flex-1 min-w-0">
                             <div class="flex justify-between items-start">
                                 <h4 class="font-bold truncate pr-2 text-sm">${item.Name}</h4>
@@ -488,7 +496,6 @@
                                 <div class="flex gap-2 items-center">
                                     <button onclick="viewQRCode('${item.ID}', '${item.Name}')" class="text-xs bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg font-bold"><i class="fa-solid fa-qrcode"></i></button>
                                     <button onclick="openEditModal('${item.ID}')" class="text-xs bg-amber-100 text-amber-700 px-3 py-1.5 rounded-lg font-bold">แก้ไข</button>
-                                    <button onclick="deleteItem('${item.ID}')" class="text-xs bg-rose-100 text-rose-700 px-3 py-1.5 rounded-lg font-bold">ลบ</button>
                                 </div>
                             </div>
                         </div>
@@ -600,10 +607,10 @@
 
         function onScanSuccess(decodedText, decodedResult) {
             stopScanner(); // Stop scanning once found
-            // Direct ID lookup instead of object parsing
             const item = inventoryData.find(i => i.ID == decodedText);
             if (item) {
-                addToCart(item.ID); // Pass ID only
+                addToCart(item);
+                // No need for alert here as addToCart shows toast
             } else {
                 Swal.fire('ไม่พบสินค้า', `ไม่พบรหัสสินค้า: ${decodedText} ในระบบ`, 'error');
             }
@@ -637,38 +644,6 @@
             fetch(CONFIG.WEB_APP_URL, { method: 'POST', body: JSON.stringify(data), mode: 'no-cors' }).then(() => { const index = inventoryData.findIndex(i => i.ID === data.id); if (index !== -1) { inventoryData[index] = { ...inventoryData[index], Name: data.name, Category: data.category, Type: data.type, Price: data.price, Quantity: data.quantity, Details: data.details }; } closeEditModal(); Swal.fire({icon:'success', title:'แก้ไขเรียบร้อย', timer: 1500, showConfirmButton: false}); setTimeout(() => { loadInventoryData(); }, 2000); }).catch(() => Swal.fire('Error', 'การเชื่อมต่อล้มเหลว', 'error'));
         }
 
-        // --- DELETE FUNCTIONALITY ---
-        function deleteItem(id) {
-            Swal.fire({
-                title: 'ยืนยันการลบ?',
-                text: "คุณจะไม่สามารถกู้คืนข้อมูลนี้ได้!",
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#ef4444',
-                cancelButtonColor: '#64748b',
-                confirmButtonText: 'ใช่, ลบเลย',
-                cancelButtonText: 'ยกเลิก'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    Swal.fire({ title: 'กำลังลบ...', didOpen: () => Swal.showLoading() });
-                    
-                    // Call Backend
-                    fetch(CONFIG.WEB_APP_URL, { 
-                        method: 'POST', 
-                        body: JSON.stringify({ action: 'deleteItem', id: id }), 
-                        mode: 'no-cors' 
-                    }).then(() => {
-                        // Optimistic update
-                        inventoryData = inventoryData.filter(item => item.ID !== id);
-                        processData(); // Re-calc stats and re-render
-                        Swal.fire('ลบสำเร็จ!', 'ข้อมูลถูกลบเรียบร้อยแล้ว', 'success');
-                    }).catch((error) => {
-                        Swal.fire('Error', 'เกิดข้อผิดพลาดในการลบ', 'error');
-                    });
-                }
-            });
-        }
-
         // --- ADD Functions ---
         async function submitAddItem(e) {
             e.preventDefault(); const form = new FormData(e.target); const data = Object.fromEntries(form.entries()); data.action = 'addItem';
@@ -689,15 +664,14 @@
                 const isAsset = item.Type === 'asset';
                 const buttonText = isAsset ? '<i class="fa-solid fa-ban"></i> เบิกไม่ได้' : '<i class="fa-solid fa-plus"></i> เพิ่ม';
                 const buttonClass = isAsset ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-indigo-50 text-indigo-600 font-bold group-hover:bg-indigo-600 group-hover:text-white';
-                // Safe ID passing: Pass only the ID string, not the whole object
-                const clickAction = isAsset ? '' : `onclick="addToCart('${item.ID}')"`;
+                const clickAction = isAsset ? '' : `onclick='addToCart(${JSON.stringify(item)})'`;
                 const badge = isAsset ? '<div class="absolute top-2 left-2 bg-gray-800/80 text-white text-[10px] px-2 py-1 rounded-md z-10">Asset</div>' : '';
 
                 grid.innerHTML += `
                 <div ${clickAction} class="bg-white rounded-xl shadow-sm border border-slate-100 p-3 cursor-pointer hover:shadow-md transition active:scale-95 group relative overflow-hidden h-full flex flex-col">
                     ${badge}
                     <div class="absolute top-2 right-2 bg-slate-900/80 text-white text-[10px] px-2 py-1 rounded-md z-10">เหลือ ${item.Quantity}</div>
-                    <div class="w-full aspect-square bg-slate-50 rounded-lg mb-3 overflow-hidden"><img src="${img}" class="w-full h-full object-cover" referrerpolicy="no-referrer" onerror="this.src='https://placehold.co/150?text=Error'"></div>
+                    <div class="w-full aspect-square bg-slate-50 rounded-lg mb-3 overflow-hidden"><img src="${img}" class="w-full h-full object-cover" referrerpolicy="no-referrer"></div>
                     <h4 class="text-sm font-bold truncate">${item.Name}</h4>
                     <p class="text-[10px] text-slate-400 mb-2">${item.Category}</p>
                     <button class="w-full text-xs py-2 rounded-lg transition flex items-center justify-center gap-1 ${buttonClass}">
@@ -706,10 +680,8 @@
                 </div>`; 
             });
         }
-        function addToCart(itemId) {
-            // Find item by ID from global data
-            const item = inventoryData.find(i => i.ID == itemId);
-            if (!item) return;
+        function addToCart(itemObj) {
+            const item = typeof itemObj === 'string' ? JSON.parse(itemObj) : itemObj; 
             
             // Additional check if somehow an asset gets passed here
             if (item.Type === 'asset') {
@@ -718,14 +690,7 @@
             }
 
             const existing = cart.find(c => c.id === item.ID);
-            if(existing) { 
-                if(existing.qty < parseInt(item.Quantity)) existing.qty++; 
-                else return Swal.fire({icon:'warning', title:'สินค้าหมด', toast:true, position:'top', timer:1500, showConfirmButton:false}); 
-            } else { 
-                cart.push({ id: item.ID, name: item.Name, qty: 1, max: parseInt(item.Quantity), price: item.Price }); 
-            } 
-            updateCartUI(); 
-            Swal.mixin({toast:true, position:'bottom-center', showConfirmButton:false, timer:1000, background:'#1e293b', color:'#fff'}).fire({icon:'success', title:`เพิ่ม "${item.Name}" แล้ว`});
+            if(existing) { if(existing.qty < parseInt(item.Quantity)) existing.qty++; else return Swal.fire({icon:'warning', title:'สินค้าหมด', toast:true, position:'top', timer:1500, showConfirmButton:false}); } else { cart.push({ id: item.ID, name: item.Name, qty: 1, max: parseInt(item.Quantity), price: item.Price }); } updateCartUI(); Swal.mixin({toast:true, position:'bottom-center', showConfirmButton:false, timer:1000, background:'#1e293b', color:'#fff'}).fire({icon:'success', title:`เพิ่ม "${item.Name}" แล้ว`});
         }
         function updateCartUI() {
             const container = document.getElementById('cart-items'); container.innerHTML = ''; let total = 0;
@@ -741,91 +706,57 @@
         }
 
         async function confirmWithdraw() {
-            const project = document.getElementById('project-name').value;
-            const user = document.getElementById('withdrawer-name').value;
-
-            if(cart.length === 0 || !project || !user) return Swal.fire({icon:'warning', title:'ข้อมูลไม่ครบ', text:'กรุณาเลือกสินค้าและกรอกข้อมูลให้ครบ'});
-            
-            const res = await Swal.fire({
-                title: 'ยืนยันการเบิก?', 
-                text: `โครงการ: ${project} จำนวน ${document.getElementById('cart-total-qty').innerText}`, 
-                icon: 'question', 
-                showCancelButton: true, 
-                confirmButtonColor: '#4f46e5', 
-                confirmButtonText: 'ยืนยัน'
-            });
+            const project = document.getElementById('project-name').value, user = document.getElementById('withdrawer-name').value;
+            if(cart.length === 0 || !project || !user) return Swal.fire({icon:'warning', title:'ข้อมูลไม่ครบ'});
+            const res = await Swal.fire({title:'ยืนยันการเบิก?', text:`โครงการ: ${project}`, icon:'question', showCancelButton:true, confirmButtonColor:'#4f46e5', confirmButtonText:'ยืนยัน'});
             
             if(res.isConfirmed) {
-                try {
-                    // Show Loading
-                    Swal.fire({
-                        title: 'กำลังบันทึก...',
-                        text: 'กรุณารอสักครู่',
-                        allowOutsideClick: false,
-                        didOpen: () => Swal.showLoading()
-                    });
+                // Optimistic UI Update: Deduct stock locally immediately
+                cart.forEach(cartItem => {
+                    const idx = inventoryData.findIndex(i => i.ID === cartItem.id);
+                    if(idx !== -1) {
+                        // Deduct locally
+                        let currentQty = parseInt(inventoryData[idx].Quantity);
+                        inventoryData[idx].Quantity = Math.max(0, currentQty - cartItem.qty);
+                    }
+                });
+                // Refresh Inventory UI to show new stock
+                processData();
 
-                    // Simulate network delay to ensure UI updates
-                    await new Promise(resolve => setTimeout(resolve, 800));
+                Swal.fire({title:'กำลังบันทึก...', didOpen:()=>Swal.showLoading()});
+                
+                // Save history record
+                const record = { date: new Date().toLocaleString(), project, user, items: [...cart], id: 'TX-'+Date.now().toString().slice(-6) }; 
+                withdrawHistory.unshift(record); 
+                localStorage.setItem('withdrawHistory', JSON.stringify(withdrawHistory)); 
+                renderHistory();
 
-                    // Optimistic UI Update: Deduct stock locally immediately
-                    cart.forEach(cartItem => {
-                        const idx = inventoryData.findIndex(i => i.ID === cartItem.id);
-                        if(idx !== -1) {
-                            // Deduct locally
-                            let currentQty = parseInt(inventoryData[idx].Quantity);
-                            inventoryData[idx].Quantity = Math.max(0, currentQty - cartItem.qty);
-                        }
-                    });
-                    // Refresh Inventory UI to show new stock
-                    processData();
-                    renderWithdrawGrid();
-
-                    // Save history record
-                    const record = { date: new Date().toLocaleString(), project, user, items: [...cart], id: 'TX-'+Date.now().toString().slice(-6) }; 
-                    withdrawHistory.unshift(record); 
-                    localStorage.setItem('withdrawHistory', JSON.stringify(withdrawHistory)); 
-                    renderHistory();
-
-                    // Send to backend (Fire and Forget to avoid hanging)
-                    fetch(CONFIG.WEB_APP_URL, {
-                        method:'POST', 
-                        body:JSON.stringify({action:'withdraw', project, user, items:cart}), 
-                        mode:'no-cors'
-                    }).catch(e => console.error("Sync Error", e));
-                    
-                    // Capture current state for PDF
-                    const currentCart = [...cart];
-                    const currentRecord = { ...record };
-
-                    // Clear form
-                    cart=[]; 
-                    updateCartUI(); 
-                    document.getElementById('project-name').value=''; 
-                    document.getElementById('withdrawer-name').value=''; 
-                    if(isMobileCartOpen) toggleMobileCart(); 
-                    
-                    // Show Success Modal with Manual Download Button
-                    await Swal.fire({
-                        icon: 'success',
-                        title: 'ทำรายการสำเร็จ',
-                        text: 'บันทึกข้อมูลเรียบร้อยแล้ว',
-                        showCancelButton: true,
-                        confirmButtonText: '<i class="fa-solid fa-file-pdf"></i> ดาวน์โหลดใบเบิก PDF',
-                        cancelButtonText: 'ปิด',
-                        confirmButtonColor: '#4f46e5',
-                        cancelButtonColor: '#64748b',
-                        allowOutsideClick: false
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            generatePDF(project, user, currentCart, currentRecord.id, currentRecord.date);
-                        }
-                    });
-
-                } catch (error) {
-                    console.error(error);
-                    Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถทำรายการได้: ' + error.message, 'error');
-                }
+                // Send to backend
+                fetch(CONFIG.WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'withdraw', project, user, items:cart}), mode:'no-cors'});
+                
+                // Clear form
+                const currentCart = [...cart]; // Keep copy for PDF generation if needed
+                cart=[]; 
+                updateCartUI(); 
+                document.getElementById('project-name').value=''; 
+                document.getElementById('withdrawer-name').value=''; 
+                if(isMobileCartOpen) toggleMobileCart(); 
+                
+                // Show Success Modal with Manual Download Button
+                Swal.fire({
+                    icon: 'success',
+                    title: 'ทำรายการสำเร็จ',
+                    text: 'บันทึกข้อมูลและตัดสตอกเรียบร้อยแล้ว',
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fa-solid fa-file-pdf"></i> ดาวน์โหลดใบเบิก PDF',
+                    cancelButtonText: 'ปิด',
+                    confirmButtonColor: '#4f46e5',
+                    cancelButtonColor: '#64748b'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        generatePDF(project, user, currentCart, record.id, record.date);
+                    }
+                });
             }
         }
         function renderHistory() {
