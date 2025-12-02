@@ -17,7 +17,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- HTML5-QRCode Scanner (Version 2.3.8 is more stable) -->
+    <!-- HTML5-QRCode Scanner -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -396,6 +396,20 @@
             renderInventory();
         }
 
+        // --- GOOGLE DRIVE IMAGE LINK CONVERTER ---
+        function formatDriveImage(url) {
+            if (!url) return 'https://placehold.co/100?text=No+Img';
+            if (url.startsWith('data:') || url.startsWith('blob:')) return url; // Base64 or Blob
+            
+            // Try to extract ID from common Google Drive URL patterns
+            const match = url.match(/[-\w]{25,}/);
+            if (match && (url.includes('drive.google.com') || url.includes('docs.google.com'))) {
+                // Use a direct serving link that bypasses preview pages
+                return `https://lh3.googleusercontent.com/d/${match[0]}`;
+            }
+            return url;
+        }
+
         function renderInventory() {
             const search = document.getElementById('search-inventory').value.toLowerCase();
             const filtered = inventoryData.filter(item => (item.Name.toLowerCase().includes(search) || (item.ID||'').toLowerCase().includes(search)) && (selectedCategory === 'All' || item.Category === selectedCategory));
@@ -407,7 +421,7 @@
             if (filtered.length === 0) { empty.classList.remove('hidden'); return; } else { empty.classList.add('hidden'); }
 
             filtered.forEach(item => {
-                const img = item.Image && item.Image.startsWith('http') ? item.Image : `https://placehold.co/100?text=No+Img`;
+                const img = formatDriveImage(item.Image);
                 const qty = parseInt(item.Quantity);
                 const status = qty < 5 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700';
                 
@@ -561,7 +575,17 @@
             const item = inventoryData.find(i => i.ID === id); if (!item) return;
             document.getElementById('edit-id').value = item.ID; document.getElementById('edit-name').value = item.Name; document.getElementById('edit-category').value = item.Category; document.getElementById('edit-existing-image').value = item.Image; document.getElementById('edit-price').value = item.Price; document.getElementById('edit-quantity').value = item.Quantity; document.getElementById('edit-details').value = item.Details;
             document.getElementById('edit-image-file').value = ''; const preview = document.getElementById('edit-preview'); const placeholder = document.getElementById('edit-image-wrapper').querySelector('.upload-placeholder');
-            if (item.Image && item.Image.startsWith('http')) { preview.src = item.Image; preview.style.display = 'block'; placeholder.style.display = 'none'; } else { preview.style.display = 'none'; placeholder.style.display = 'block'; }
+            
+            const displayImg = formatDriveImage(item.Image);
+            if (displayImg && !displayImg.includes('placehold')) { 
+                preview.src = displayImg; 
+                preview.style.display = 'block'; 
+                placeholder.style.display = 'none'; 
+            } else { 
+                preview.style.display = 'none'; 
+                placeholder.style.display = 'block'; 
+            }
+            
             const modal = document.getElementById('edit-modal'); modal.classList.remove('opacity-0', 'pointer-events-none'); document.body.classList.add('modal-active'); modal.querySelector('.modal-container').classList.remove('scale-95'); modal.querySelector('.modal-container').classList.add('scale-100');
         }
         function closeEditModal() { const modal = document.getElementById('edit-modal'); modal.classList.add('opacity-0', 'pointer-events-none'); document.body.classList.remove('modal-active'); modal.querySelector('.modal-container').classList.remove('scale-100'); modal.querySelector('.modal-container').classList.add('scale-95'); }
@@ -585,7 +609,7 @@
             const grid = document.getElementById('withdraw-grid'); const search = document.getElementById('withdraw-search').value.toLowerCase(); const empty = document.getElementById('withdraw-empty');
             grid.innerHTML = ''; const filtered = inventoryData.filter(item => item.Name.toLowerCase().includes(search) && parseInt(item.Quantity) > 0);
             if(filtered.length === 0) { empty.classList.remove('hidden'); empty.classList.add('flex'); } else { empty.classList.add('hidden'); empty.classList.remove('flex'); }
-            filtered.forEach(item => { const img = item.Image && item.Image.startsWith('http') ? item.Image : `https://placehold.co/150?text=Item`; grid.innerHTML += `<div onclick='addToCart(${JSON.stringify(item)})' class="bg-white rounded-xl shadow-sm border border-slate-100 p-3 cursor-pointer hover:shadow-md transition active:scale-95 group relative overflow-hidden h-full flex flex-col"><div class="absolute top-2 right-2 bg-slate-900/80 text-white text-[10px] px-2 py-1 rounded-md z-10">เหลือ ${item.Quantity}</div><div class="w-full aspect-square bg-slate-50 rounded-lg mb-3 overflow-hidden"><img src="${img}" class="w-full h-full object-cover" referrerpolicy="no-referrer"></div><h4 class="text-sm font-bold truncate">${item.Name}</h4><p class="text-[10px] text-slate-400 mb-2">${item.Category}</p><button class="w-full text-xs py-2 rounded-lg bg-indigo-50 text-indigo-600 font-bold group-hover:bg-indigo-600 group-hover:text-white transition">เพิ่ม</button></div>`; });
+            filtered.forEach(item => { const img = formatDriveImage(item.Image); grid.innerHTML += `<div onclick='addToCart(${JSON.stringify(item)})' class="bg-white rounded-xl shadow-sm border border-slate-100 p-3 cursor-pointer hover:shadow-md transition active:scale-95 group relative overflow-hidden h-full flex flex-col"><div class="absolute top-2 right-2 bg-slate-900/80 text-white text-[10px] px-2 py-1 rounded-md z-10">เหลือ ${item.Quantity}</div><div class="w-full aspect-square bg-slate-50 rounded-lg mb-3 overflow-hidden"><img src="${img}" class="w-full h-full object-cover" referrerpolicy="no-referrer"></div><h4 class="text-sm font-bold truncate">${item.Name}</h4><p class="text-[10px] text-slate-400 mb-2">${item.Category}</p><button class="w-full text-xs py-2 rounded-lg bg-indigo-50 text-indigo-600 font-bold group-hover:bg-indigo-600 group-hover:text-white transition">เพิ่ม</button></div>`; });
         }
         function addToCart(itemObj) {
             const item = typeof itemObj === 'string' ? JSON.parse(itemObj) : itemObj; const existing = cart.find(c => c.id === item.ID);
